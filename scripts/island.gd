@@ -115,16 +115,24 @@ func _build_foliage() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = noise_seed * 7 + 3
 	var tree := _make_tree()
-	#         mesh,     count,  min_h, max_h, max_slope, s_min, s_max, y_off, rng, shadows
-	_scatter(tree,         75, 1.8, 11.0, 1.3, 0.9, 1.9, 0.0, rng)        # spread-out pines
-	_scatter(tree,         11, 1.8,  9.0, 1.0, 2.6, 4.0, 0.0, rng)        # a few towering giants
+	# Solid colliders: a trunk cylinder for trees, a sphere for rocks (they scale
+	# with each instance). Bushes and grass stay pass-through.
+	var trunk_col := CylinderShape3D.new()
+	trunk_col.radius = 0.35
+	trunk_col.height = 4.0
+	var rock_col := SphereShape3D.new()
+	rock_col.radius = 0.6
+	#         mesh,     count,  min_h, max_h, max_slope, s_min, s_max, y_off, rng, shadows, col_shape, col_offset
+	_scatter(tree,         75, 1.8, 11.0, 1.3, 0.9, 1.9, 0.0, rng, true, trunk_col, Vector3(0, 2.0, 0))
+	_scatter(tree,         11, 1.8,  9.0, 1.0, 2.6, 4.0, 0.0, rng, true, trunk_col, Vector3(0, 2.0, 0))
 	_scatter(_make_bush(), 300, 1.2, 12.0, 3.0, 0.6, 1.3, 0.0, rng)
-	_scatter(_make_rock(), 150, 0.6, 20.0, 6.0, 0.5, 1.9, -0.2, rng)
-	_scatter(_make_grass(),1300, 1.2, 9.0, 2.5, 0.6, 1.4, 0.0, rng, false) # grass: no shadows
+	_scatter(_make_rock(), 150, 0.6, 20.0, 6.0, 0.5, 1.9, -0.2, rng, true, rock_col, Vector3(0, 0.3, 0))
+	_scatter(_make_grass(),1300, 1.2, 9.0, 2.5, 0.6, 1.4, 0.0, rng, false)   # grass: no shadows
 
 func _scatter(mesh: ArrayMesh, count: int, min_h: float, max_h: float,
 		max_slope: float, s_min: float, s_max: float, y_off: float,
-		rng: RandomNumberGenerator, cast_shadow: bool = true) -> void:
+		rng: RandomNumberGenerator, cast_shadow: bool = true,
+		col_shape: Shape3D = null, col_offset: Vector3 = Vector3.ZERO) -> void:
 	var xforms: Array[Transform3D] = []
 	var tries := count * 8
 	var r := island_radius * 0.98
@@ -157,6 +165,17 @@ func _scatter(mesh: ArrayMesh, count: int, min_h: float, max_h: float,
 	if not cast_shadow:
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mmi)
+
+	# Optionally give each instance a solid static collider (trees, rocks).
+	if col_shape != null:
+		for xf in xforms:
+			var sb := StaticBody3D.new()
+			sb.transform = xf
+			var cs := CollisionShape3D.new()
+			cs.shape = col_shape
+			cs.position = col_offset
+			sb.add_child(cs)
+			add_child(sb)
 
 func _mat(c: Color) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()

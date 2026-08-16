@@ -8,4 +8,5 @@
 # assets/models/hero_anim_merged.glb; these are just the raw bundle/extraction.
 /assets/models/*.zip
 /assets/models/hero_animated/
+/assets/models/nm_extract/
 /assets/models/hero_character.glb
