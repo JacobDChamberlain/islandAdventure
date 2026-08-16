@@ -9,8 +9,8 @@ signal all_gems_collected()
 
 var total_gems: int = 0   # how many gems exist in the level (counted at startup)
 var score: int = 0        # how many you've picked up
-var max_health: int = 3
-var health: int = 3
+var max_health: int = 5
+var health: int = 5
 
 # Each gem calls this in its _ready() so we know the total.
 func register_gem() -> void:

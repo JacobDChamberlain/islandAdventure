@@ -28,7 +28,9 @@ art. Never make art for a game that isn't fun to play yet.
       [x] Enemies = user's rigged "nightmare head" (nightmare.glb, 20 clips) with a
           wander/pause/react state machine; 5 roaming + 1 giant. Trees & rocks have
           per-instance static collision.
-      [ ] Add a goal / win condition; optional enemy chase behavior.
+      [x] Enemy AI: chase the player on sight, telegraphed attack animations
+          (kicks/stomps/slams) that deal damage; player health raised to 5.
+      [ ] Add a goal / win condition; juice (particles, sound); title screen.
 - [x] **5. Animation** — regenerated the hero in Meshy with **A-Pose** (Pro
       perk; rigs far cleaner than a dynamic pose). Remeshed to 30K, auto-rigged,
       applied 7 clips (Idle_6, Running, RunFast, Walking, Jump_with_Arms_Open,
