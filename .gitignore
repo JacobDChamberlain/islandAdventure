@@ -1,0 +1,11 @@
+# Godot 4 — import cache & editor-generated data (regenerated automatically on open)
+/.godot/
+
+# macOS
+.DS_Store
+
+# Meshy download intermediates — the model the game actually uses is
+# assets/models/hero_anim_merged.glb; these are just the raw bundle/extraction.
+/assets/models/*.zip
+/assets/models/hero_animated/
+/assets/models/hero_character.glb
