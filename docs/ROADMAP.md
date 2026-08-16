@@ -35,7 +35,10 @@ art. Never make art for a game that isn't fun to play yet.
           footsteps; enemies have positional 3D footsteps (louder/deeper by size)
           and play random sci-fi "weird noises" on idle/attack. Sounds are easily
           swappable (change the base names / folders in sfx.gd).
-      [ ] Add a goal / win condition; title screen; nicer SFX later.
+      [x] Title screen (synthwave shader bg) + pause menu; menu nav/select sounds.
+      [x] Settings (volume/sensitivity/fullscreen, persisted, F toggles fullscreen)
+          and Save/Load with 3 JSON slots (player pos/health/gems; enemies reset).
+      [ ] Add a goal / win condition; moving-platform/launcher set-pieces; nicer SFX.
 - [x] **5. Animation** — regenerated the hero in Meshy with **A-Pose** (Pro
       perk; rigs far cleaner than a dynamic pose). Remeshed to 30K, auto-rigged,
       applied 7 clips (Idle_6, Running, RunFast, Walking, Jump_with_Arms_Open,

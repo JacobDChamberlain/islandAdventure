@@ -18,6 +18,8 @@ var _hurt: Array[AudioStream] = []
 var _step: Array[AudioStream] = []
 var _jump: Array[AudioStream] = []
 var _weird: Array[AudioStream] = []
+var _ui_move: Array[AudioStream] = []
+var _ui_select: Array[AudioStream] = []
 
 var _players: Array[AudioStreamPlayer] = []
 var _next: int = 0
@@ -30,6 +32,8 @@ func _ready() -> void:
 	_jump = _variants(IMPACT + "impactSoft_medium")
 	for base in WEIRD_BASES:
 		_weird.append_array(_variants(SCIFI + base))
+	_ui_move = _variants(INTERFACE + "tick")
+	_ui_select = _variants(INTERFACE + "confirmation")
 	for i in 8:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
@@ -86,6 +90,14 @@ func gem() -> void: _play(_gem, -3.0, 0.1)
 func hurt() -> void: _play(_hurt, 1.0, 0.12)
 func footstep() -> void: _play(_step, -9.0, 0.22)
 func jump() -> void: _play(_jump, -5.0, 0.1)
+func ui_move() -> void: _play(_ui_move, -12.0, 0.05)
+func ui_select() -> void: _play(_ui_select, -16.0, 0.05)
+
+# Connect a button so it plays navigate/select sounds automatically.
+func wire_button(b: BaseButton) -> void:
+	b.focus_entered.connect(ui_move)
+	b.mouse_entered.connect(ui_move)
+	b.pressed.connect(ui_select)
 
 # For enemies to play from their own 3D audio players.
 func random_step() -> AudioStream:

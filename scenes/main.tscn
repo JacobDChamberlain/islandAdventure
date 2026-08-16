@@ -9,6 +9,7 @@
 [ext_resource type="Script" uid="uid://dnmnqgoj52ip5" path="res://scripts/head_portrait.gd" id="7_headportrait"]
 [ext_resource type="Shader" uid="uid://d0su8br5w0hx8" path="res://assets/materials/circle_portrait.gdshader" id="8_circle"]
 [ext_resource type="Script" uid="uid://dbheolt2u5fhj" path="res://scripts/island.gd" id="9_island"]
+[ext_resource type="Script" path="res://scripts/pause_menu.gd" id="10_pause"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.32, 0.58, 0.9, 1)
@@ -222,7 +223,7 @@ offset_left = 14.0
 offset_top = -30.0
 offset_right = 800.0
 offset_bottom = -8.0
-text = "WASD move  ·  Mouse look  ·  Space jump  ·  Stomp enemies  ·  Esc frees mouse"
+text = "WASD move  ·  Double-tap W to sprint  ·  Space jump  ·  Stomp enemies  ·  Esc pause"
 
 [node name="WinLabel" type="Label" parent="UI/HUD"]
 layout_mode = 0
@@ -231,3 +232,165 @@ offset_top = 100.0
 offset_right = 500.0
 offset_bottom = 124.0
 text = "All gems collected!  Nice work."
+
+[node name="PauseLayer" type="CanvasLayer" parent="."]
+process_mode = 3
+layer = 10
+
+[node name="PauseMenu" type="Control" parent="PauseLayer"]
+process_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("10_pause")
+
+[node name="Dim" type="ColorRect" parent="PauseLayer/PauseMenu"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.55)
+
+[node name="Main" type="VBoxContainer" parent="PauseLayer/PauseMenu"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -130.0
+offset_top = -175.0
+offset_right = 130.0
+offset_bottom = 195.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 12
+
+[node name="Paused" type="Label" parent="PauseLayer/PauseMenu/Main"]
+text = "PAUSED"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 48
+
+[node name="Resume" type="Button" parent="PauseLayer/PauseMenu/Main"]
+custom_minimum_size = Vector2(240, 44)
+text = "Resume"
+theme_override_font_sizes/font_size = 22
+
+[node name="Save" type="Button" parent="PauseLayer/PauseMenu/Main"]
+custom_minimum_size = Vector2(240, 44)
+text = "Save Game"
+theme_override_font_sizes/font_size = 22
+
+[node name="Load" type="Button" parent="PauseLayer/PauseMenu/Main"]
+custom_minimum_size = Vector2(240, 44)
+text = "Load Game"
+theme_override_font_sizes/font_size = 22
+
+[node name="Settings" type="Button" parent="PauseLayer/PauseMenu/Main"]
+custom_minimum_size = Vector2(240, 44)
+text = "Settings"
+theme_override_font_sizes/font_size = 22
+
+[node name="Restart" type="Button" parent="PauseLayer/PauseMenu/Main"]
+custom_minimum_size = Vector2(240, 44)
+text = "Restart"
+theme_override_font_sizes/font_size = 22
+
+[node name="QuitTitle" type="Button" parent="PauseLayer/PauseMenu/Main"]
+custom_minimum_size = Vector2(240, 44)
+text = "Quit to Title"
+theme_override_font_sizes/font_size = 22
+
+[node name="SettingsPanel" type="VBoxContainer" parent="PauseLayer/PauseMenu"]
+visible = false
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -210.0
+offset_top = -140.0
+offset_right = 210.0
+offset_bottom = 150.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 16
+
+[node name="SettingsTitle" type="Label" parent="PauseLayer/PauseMenu/SettingsPanel"]
+text = "SETTINGS"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 36
+
+[node name="VolumeRow" type="HBoxContainer" parent="PauseLayer/PauseMenu/SettingsPanel"]
+theme_override_constants/separation = 16
+
+[node name="Label" type="Label" parent="PauseLayer/PauseMenu/SettingsPanel/VolumeRow"]
+custom_minimum_size = Vector2(200, 0)
+text = "Master Volume"
+
+[node name="VolumeSlider" type="HSlider" parent="PauseLayer/PauseMenu/SettingsPanel/VolumeRow"]
+custom_minimum_size = Vector2(180, 0)
+size_flags_vertical = 1
+min_value = 0.0
+max_value = 1.0
+step = 0.05
+value = 0.8
+
+[node name="SensRow" type="HBoxContainer" parent="PauseLayer/PauseMenu/SettingsPanel"]
+theme_override_constants/separation = 16
+
+[node name="Label" type="Label" parent="PauseLayer/PauseMenu/SettingsPanel/SensRow"]
+custom_minimum_size = Vector2(200, 0)
+text = "Mouse Sensitivity"
+
+[node name="SensSlider" type="HSlider" parent="PauseLayer/PauseMenu/SettingsPanel/SensRow"]
+custom_minimum_size = Vector2(180, 0)
+size_flags_vertical = 1
+min_value = 0.2
+max_value = 3.0
+step = 0.1
+value = 1.0
+
+[node name="FullRow" type="HBoxContainer" parent="PauseLayer/PauseMenu/SettingsPanel"]
+theme_override_constants/separation = 16
+
+[node name="Label" type="Label" parent="PauseLayer/PauseMenu/SettingsPanel/FullRow"]
+custom_minimum_size = Vector2(200, 0)
+text = "Fullscreen"
+
+[node name="FullCheck" type="CheckButton" parent="PauseLayer/PauseMenu/SettingsPanel/FullRow"]
+
+[node name="SettingsBack" type="Button" parent="PauseLayer/PauseMenu/SettingsPanel"]
+custom_minimum_size = Vector2(160, 42)
+text = "Back"
+
+[node name="SlotsPanel" type="VBoxContainer" parent="PauseLayer/PauseMenu"]
+visible = false
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -150.0
+offset_right = 200.0
+offset_bottom = 160.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 14
+
+[node name="SlotsTitle" type="Label" parent="PauseLayer/PauseMenu/SlotsPanel"]
+text = "SAVE GAME"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 36
+
+[node name="Slot1" type="Button" parent="PauseLayer/PauseMenu/SlotsPanel"]
+custom_minimum_size = Vector2(380, 46)
+text = "Slot 1"
+
+[node name="Slot2" type="Button" parent="PauseLayer/PauseMenu/SlotsPanel"]
+custom_minimum_size = Vector2(380, 46)
+text = "Slot 2"
+
+[node name="Slot3" type="Button" parent="PauseLayer/PauseMenu/SlotsPanel"]
+custom_minimum_size = Vector2(380, 46)
+text = "Slot 3"
+
+[node name="SlotsBack" type="Button" parent="PauseLayer/PauseMenu/SlotsPanel"]
+custom_minimum_size = Vector2(160, 42)
+text = "Back"

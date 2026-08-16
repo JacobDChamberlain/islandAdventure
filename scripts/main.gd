@@ -7,3 +7,6 @@ func _ready() -> void:
 	$Sun.rotation_degrees = Vector3(-55, -35, 0)
 	# Only render shadows near the player, not across the whole island (big perf win).
 	$Sun.directional_shadow_max_distance = 110.0
+	# Start a fresh run (count the gems in the level), then apply a loaded save if any.
+	Game.new_run(get_tree().get_nodes_in_group("gem").size())
+	SaveManager.apply_pending()

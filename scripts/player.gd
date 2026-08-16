@@ -245,13 +245,13 @@ func _respawn() -> void:
 func _input(event: InputEvent) -> void:
 	# Mouse look: horizontal turns the whole body, vertical tilts only the camera.
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		rotate_y(-event.relative.x * mouse_sensitivity)
-		camera_pivot.rotate_x(-event.relative.y * mouse_sensitivity)
+		var sens := mouse_sensitivity * Settings.sensitivity
+		rotate_y(-event.relative.x * sens)
+		camera_pivot.rotate_x(-event.relative.y * sens)
 		camera_pivot.rotation.x = clamp(camera_pivot.rotation.x, deg_to_rad(-70), deg_to_rad(25))
-	# Press Escape to free the mouse; click to recapture it.
-	if event.is_action_pressed("ui_cancel"):
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	if event is InputEventMouseButton and event.pressed:
+	# Click to recapture the mouse (e.g. after unpausing). Esc is handled by the
+	# pause menu, not here.
+	if event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	# Jump on the moment Space is pressed (not while held), so double-jump works.
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE:

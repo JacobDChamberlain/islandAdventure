@@ -10,7 +10,7 @@ var _base_y: float = 0.0
 var _time: float = 0.0
 
 func _ready() -> void:
-	Game.register_gem()
+	add_to_group("gem")
 	_base_y = position.y
 	body_entered.connect(_on_body_entered)
 	_snap_to_ground()
@@ -32,5 +32,5 @@ func _on_body_entered(body: Node3D) -> void:
 	if body.is_in_group("player"):
 		Fx.poof(global_position, Color(1.0, 0.82, 0.2), 16, 0.8)
 		Sfx.gem()
-		Game.add_score(1)
+		Game.collect(name)
 		queue_free()

@@ -1,0 +1,77 @@
+[gd_scene load_steps=4 format=3 uid="uid://c0titlescene01"]
+
+[ext_resource type="Script" path="res://scripts/title.gd" id="1_title"]
+[ext_resource type="Shader" path="res://assets/materials/synthwave.gdshader" id="2_shader"]
+
+[sub_resource type="ShaderMaterial" id="SynthMat"]
+shader = ExtResource("2_shader")
+shader_parameter/speed = 0.35
+
+[node name="Title" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_title")
+
+[node name="Bg" type="ColorRect" parent="."]
+material = SubResource("SynthMat")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="TitleLabel" type="Label" parent="."]
+layout_mode = 1
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -450.0
+offset_top = 80.0
+offset_right = 450.0
+offset_bottom = 180.0
+grow_horizontal = 2
+text = "ISLAND ADVENTURE"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(1, 0.96, 0.86, 1)
+theme_override_colors/font_outline_color = Color(0.62, 0.06, 0.42, 1)
+theme_override_constants/outline_size = 12
+theme_override_font_sizes/font_size = 74
+
+[node name="Subtitle" type="Label" parent="."]
+layout_mode = 1
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -350.0
+offset_top = 176.0
+offset_right = 350.0
+offset_bottom = 208.0
+grow_horizontal = 2
+text = "a nightmare in paradise"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.96, 0.82, 0.96, 1)
+theme_override_font_sizes/font_size = 22
+
+[node name="Menu" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -110.0
+offset_top = 70.0
+offset_right = 110.0
+offset_bottom = 200.0
+grow_horizontal = 2
+theme_override_constants/separation = 16
+
+[node name="Play" type="Button" parent="Menu"]
+custom_minimum_size = Vector2(220, 50)
+layout_mode = 2
+text = "PLAY"
+theme_override_font_sizes/font_size = 26
+
+[node name="Quit" type="Button" parent="Menu"]
+custom_minimum_size = Vector2(220, 50)
+layout_mode = 2
+text = "QUIT"
+theme_override_font_sizes/font_size = 26

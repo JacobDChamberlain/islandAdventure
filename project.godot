@@ -12,7 +12,7 @@ config_version=5
 
 config/name="Island Adventure (Prototype)"
 config/description="A 3D platformer / collectathon prototype in the spirit of Jak & Daxter."
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/title.tscn"
 config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="res://icon.svg"
 
@@ -21,6 +21,8 @@ config/icon="res://icon.svg"
 Game="*res://scripts/game.gd"
 Fx="*res://scripts/fx.gd"
 Sfx="*res://scripts/sfx.gd"
+Settings="*res://scripts/settings.gd"
+SaveManager="*res://scripts/save_manager.gd"
 
 [display]
 
