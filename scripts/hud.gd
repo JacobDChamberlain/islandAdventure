@@ -4,7 +4,7 @@ extends Control
 
 @onready var health_bar: ProgressBar = $HealthBar
 @onready var gem_label: Label = $GemCount
-@onready var win_label: Label = $WinLabel
+@onready var lives_label: Label = $LivesLabel
 @onready var portrait_rect: TextureRect = $Portrait
 @onready var portrait_viewport: SubViewport = $PortraitViewport
 @onready var damage_flash: ColorRect = $DamageFlash
@@ -22,8 +22,7 @@ func _ready() -> void:
 	_last_health = Game.health
 	Game.score_changed.connect(_on_score_changed)
 	Game.health_changed.connect(_on_health_changed)
-	Game.all_gems_collected.connect(_on_all_gems)
-	win_label.hide()
+	Game.lives_changed.connect(_on_lives_changed)
 	damage_flash.color.a = 0.0
 	call_deferred("_refresh")
 
@@ -35,6 +34,7 @@ func _flash_damage() -> void:
 func _refresh() -> void:
 	_on_score_changed(Game.score, Game.total_gems)
 	_on_health_changed(Game.health, Game.max_health)
+	_on_lives_changed(Game.lives, Game.max_lives)
 
 func _on_score_changed(score: int, total: int) -> void:
 	gem_label.text = "%d / %d" % [score, total]
@@ -51,5 +51,5 @@ func _on_health_changed(health: int, max_health: int) -> void:
 	if box:
 		box.bg_color = HEALTH_LOW.lerp(HEALTH_FULL, frac)
 
-func _on_all_gems() -> void:
-	win_label.show()
+func _on_lives_changed(lives: int, _max_lives: int) -> void:
+	lives_label.text = "Lives:  %d" % lives

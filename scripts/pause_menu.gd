@@ -35,6 +35,8 @@ func _ready() -> void:
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if not visible:
+			if get_tree().paused:
+				return   # something else (e.g. the end screen) owns the pause
 			_pause()
 		elif _settings.visible or _slots.visible:
 			_show_main()

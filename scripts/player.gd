@@ -234,10 +234,13 @@ func take_hit(source_pos: Vector3) -> void:
 	velocity.z = away.z * knockback_strength
 	velocity.y = bounce_velocity * 0.6
 	if Game.damage(1):
-		_respawn()
+		_handle_death()
 
-func _respawn() -> void:
-	Game.revive()
+# Lose a life and respawn — unless that was the last life (then Game emits
+# game_over and the end screen takes over, so we just stop).
+func _handle_death() -> void:
+	if Game.lose_life():
+		return
 	global_position = _spawn_point
 	velocity = Vector3.ZERO
 	_invuln = invuln_time
@@ -343,7 +346,6 @@ func _physics_process(delta: float) -> void:
 	else:
 		_step_timer = 0.0
 
-	# Sink into the water (or fall off the world) → respawn at the start.
+	# Sink into the water (or fall off the world) → lose a life, respawn.
 	if global_position.y < -2.0:
-		global_position = _spawn_point
-		velocity = Vector3.ZERO
+		_handle_death()

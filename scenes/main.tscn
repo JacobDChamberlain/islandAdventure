@@ -10,6 +10,7 @@
 [ext_resource type="Shader" uid="uid://d0su8br5w0hx8" path="res://assets/materials/circle_portrait.gdshader" id="8_circle"]
 [ext_resource type="Script" uid="uid://dbheolt2u5fhj" path="res://scripts/island.gd" id="9_island"]
 [ext_resource type="Script" path="res://scripts/pause_menu.gd" id="10_pause"]
+[ext_resource type="Script" path="res://scripts/end_screen.gd" id="11_end"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.32, 0.58, 0.9, 1)
@@ -225,13 +226,13 @@ offset_right = 800.0
 offset_bottom = -8.0
 text = "WASD move  ·  Double-tap W to sprint  ·  Space jump  ·  Stomp enemies  ·  Esc pause"
 
-[node name="WinLabel" type="Label" parent="UI/HUD"]
+[node name="LivesLabel" type="Label" parent="UI/HUD"]
 layout_mode = 0
 offset_left = 122.0
 offset_top = 100.0
-offset_right = 500.0
+offset_right = 320.0
 offset_bottom = 124.0
-text = "All gems collected!  Nice work."
+text = "Lives:  3"
 
 [node name="PauseLayer" type="CanvasLayer" parent="."]
 process_mode = 3
@@ -394,3 +395,48 @@ text = "Slot 3"
 [node name="SlotsBack" type="Button" parent="PauseLayer/PauseMenu/SlotsPanel"]
 custom_minimum_size = Vector2(160, 42)
 text = "Back"
+
+[node name="EndLayer" type="CanvasLayer" parent="."]
+process_mode = 3
+layer = 20
+
+[node name="EndScreen" type="Control" parent="EndLayer"]
+process_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("11_end")
+
+[node name="Dim" type="ColorRect" parent="EndLayer/EndScreen"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.7)
+
+[node name="VBox" type="VBoxContainer" parent="EndLayer/EndScreen"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -110.0
+offset_right = 160.0
+offset_bottom = 110.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 18
+
+[node name="Title" type="Label" parent="EndLayer/EndScreen/VBox"]
+text = "GAME OVER"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 60
+
+[node name="PlayAgain" type="Button" parent="EndLayer/EndScreen/VBox"]
+custom_minimum_size = Vector2(260, 48)
+text = "Play Again"
+theme_override_font_sizes/font_size = 24
+
+[node name="QuitTitle" type="Button" parent="EndLayer/EndScreen/VBox"]
+custom_minimum_size = Vector2(260, 48)
+text = "Quit to Title"
+theme_override_font_sizes/font_size = 24
