@@ -20,11 +20,13 @@ extends CharacterBody3D
 @export var model_height: float = 2.6
 @export var model_yaw_offset_deg: float = 180.0
 
-enum State { WANDER, PAUSE, CHASE, ATTACK }
+enum State { WANDER, PAUSE, CHASE, ATTACK, HIT }
 
 const WALK := "Walking"
 const RUN := "Running"
 const SPRINT := "RunFast"
+const HIT_FRONT := "Hit_Reaction"
+const HIT_BACK := "Hit_in_Back_While_Running"
 const ATTACKS: Array[String] = [
 	"High_Kick", "Attack", "Angry_Ground_Stomp_2", "Backflip_Sweep_Kick", "Jump_and_Slam_Back_Down",
 ]
@@ -108,7 +110,7 @@ func _get_player() -> Node3D:
 
 func _on_anim_finished(_name: String) -> void:
 	# Idle actions and attacks are one-shots → decide what to do next.
-	if _state == State.PAUSE or _state == State.ATTACK:
+	if _state == State.PAUSE or _state == State.ATTACK or _state == State.HIT:
 		_reevaluate()
 
 func _reevaluate() -> void:
@@ -199,6 +201,8 @@ func _physics_process(delta: float) -> void:
 					_atk_dealt = true
 					if p and global_position.distance_to(p.global_position) <= attack_range * 1.4 and p.has_method("take_hit"):
 						p.take_hit(global_position)
+		State.HIT:
+			_brake(delta)
 
 	move_and_slide()
 
@@ -263,6 +267,17 @@ func _on_detector_body_entered(body: Node3D) -> void:
 	if from_above and falling:
 		body.bounce()
 		_die()
+	elif _state == State.WANDER or _state == State.PAUSE:
+		# Bumped while not aggro'd → flinch (front or back), then carry on.
+		var fwd := Vector3(velocity.x, 0.0, velocity.z)
+		if fwd.length() < 0.1:
+			fwd = _heading
+		var from_back := (body.global_position - global_position).dot(fwd) < 0.0
+		_enter_hit(from_back)
+
+func _enter_hit(from_back: bool) -> void:
+	_state = State.HIT
+	_play(HIT_BACK if from_back else HIT_FRONT)
 
 func _die() -> void:
 	var sc: float = global_transform.basis.get_scale().y

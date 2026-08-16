@@ -173,7 +173,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24, 10, -32)
 base_offset = 10.0
 
 [node name="MovingPlatform1" parent="." instance=ExtResource("13_mplat")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 44, 10, 12)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 82, 10, 22)
 travel = Vector3(0, 10, 0)
 period = 5.0
 base_offset = 1.5
