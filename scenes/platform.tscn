@@ -1,0 +1,23 @@
+[gd_scene load_steps=5 format=3 uid="uid://c0platform001"]
+
+[ext_resource type="Script" path="res://scripts/platform.gd" id="1_sp"]
+
+[sub_resource type="BoxMesh" id="SpMesh"]
+size = Vector3(3.5, 0.6, 3.5)
+
+[sub_resource type="StandardMaterial3D" id="SpMat"]
+albedo_color = Color(0.5, 0.44, 0.36, 1)
+roughness = 0.9
+
+[sub_resource type="BoxShape3D" id="SpShape"]
+size = Vector3(3.5, 0.6, 3.5)
+
+[node name="Platform" type="StaticBody3D"]
+script = ExtResource("1_sp")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("SpMesh")
+surface_material_override/0 = SubResource("SpMat")
+
+[node name="Collision" type="CollisionShape3D" parent="."]
+shape = SubResource("SpShape")

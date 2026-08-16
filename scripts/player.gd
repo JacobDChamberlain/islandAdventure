@@ -220,6 +220,12 @@ func bounce() -> void:
 	velocity.y = bounce_velocity
 	jumps_left = max_jumps - 1
 
+# Called by a launch pad: fling upward and refill jumps.
+func launch(strength: float) -> void:
+	velocity.y = strength
+	jumps_left = max_jumps
+	Sfx.jump()
+
 # Called by an enemy when it hits you from the side.
 func take_hit(source_pos: Vector3) -> void:
 	if _invuln > 0.0:

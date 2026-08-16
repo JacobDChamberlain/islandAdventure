@@ -1,0 +1,29 @@
+[gd_scene load_steps=5 format=3 uid="uid://c0launchpad001"]
+
+[ext_resource type="Script" path="res://scripts/launch_pad.gd" id="1_pad"]
+
+[sub_resource type="CylinderMesh" id="PadMesh"]
+top_radius = 1.6
+bottom_radius = 1.7
+height = 0.4
+radial_segments = 20
+
+[sub_resource type="StandardMaterial3D" id="PadMat"]
+albedo_color = Color(0.14, 0.7, 0.9, 1)
+emission_enabled = true
+emission = Color(0.25, 0.85, 1.0, 1)
+emission_energy_multiplier = 2.0
+
+[sub_resource type="CylinderShape3D" id="PadShape"]
+radius = 1.6
+height = 1.6
+
+[node name="LaunchPad" type="Area3D"]
+script = ExtResource("1_pad")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("PadMesh")
+surface_material_override/0 = SubResource("PadMat")
+
+[node name="Collision" type="CollisionShape3D" parent="."]
+shape = SubResource("PadShape")

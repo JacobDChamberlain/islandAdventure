@@ -5,6 +5,8 @@ extends Area3D
 @export var spin_speed: float = 2.0
 @export var bob_height: float = 0.35
 @export var bob_speed: float = 2.5
+@export var snap_to_ground: bool = true   # sit on the terrain at this x/z
+@export var extra_height: float = 0.0      # float this far above it (for launch-pad gems)
 
 var _base_y: float = 0.0
 var _time: float = 0.0
@@ -16,11 +18,13 @@ func _ready() -> void:
 	_snap_to_ground()
 
 func _snap_to_ground() -> void:
-	# Sit just above the terrain wherever the gem was placed.
+	if not snap_to_ground:
+		_base_y = position.y
+		return
 	await get_tree().process_frame
 	var island := get_tree().get_first_node_in_group("island")
 	if island and island.has_method("height_at"):
-		global_position.y = island.height_at(global_position.x, global_position.z) + 1.4
+		global_position.y = island.height_at(global_position.x, global_position.z) + 1.4 + extra_height
 	_base_y = position.y
 
 func _process(delta: float) -> void:

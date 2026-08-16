@@ -40,7 +40,10 @@ art. Never make art for a game that isn't fun to play yet.
           and Save/Load with 3 JSON slots (player pos/health/gems; enemies reset).
       [x] Win/lose loop: collect all gems = YOU WIN; 3 lives, death (enemy or
           water) costs one, 0 lives = GAME OVER. End screen: Play Again / Quit.
-      [ ] Moving-platform/launcher set-pieces; more props; nicer SFX; deploy to itch.
+      [x] Day/night cycle (animated sun/sky/ambient); launch pads, moving platforms
+          (footprint-aware terrain clearance), static climb platforms; gems re-scattered
+          (3 float high above pads, 1 tops the climb, 4 on ground). Added CLAUDE.md.
+      [ ] More props (Meshy); crouch clip + Shift-crouch; nicer SFX; deploy to itch.
 - [x] **5. Animation** — regenerated the hero in Meshy with **A-Pose** (Pro
       perk; rigs far cleaner than a dynamic pose). Remeshed to 30K, auto-rigged,
       applied 7 clips (Idle_6, Running, RunFast, Walking, Jump_with_Arms_Open,

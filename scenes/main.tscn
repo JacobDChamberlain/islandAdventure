@@ -11,6 +11,9 @@
 [ext_resource type="Script" uid="uid://dbheolt2u5fhj" path="res://scripts/island.gd" id="9_island"]
 [ext_resource type="Script" path="res://scripts/pause_menu.gd" id="10_pause"]
 [ext_resource type="Script" path="res://scripts/end_screen.gd" id="11_end"]
+[ext_resource type="PackedScene" path="res://scenes/launch_pad.tscn" id="12_pad"]
+[ext_resource type="PackedScene" path="res://scenes/moving_platform.tscn" id="13_mplat"]
+[ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="14_plat"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.32, 0.58, 0.9, 1)
@@ -88,28 +91,32 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 5)
 
 [node name="Gem1" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32, 30, 18)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 30, 20)
+extra_height = 11.0
 
 [node name="Gem2" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -45, 30, -28)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40, 30, 30)
+extra_height = 11.0
 
 [node name="Gem3" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 30, -58)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 30, -50)
+extra_height = 11.0
 
 [node name="Gem4" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -28, 30, 48)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24, 30, -32)
+extra_height = 10.0
 
 [node name="Gem5" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 62, 30, -8)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55, 30, -10)
 
 [node name="Gem6" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -64, 30, 26)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -58, 30, 25)
 
 [node name="Gem7" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 30, 72)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 30, 68)
 
 [node name="Gem8" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48, 30, 52)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48, 30, 48)
 
 [node name="Enemy1" parent="." instance=ExtResource("4_enemy")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26, 30, 12)
@@ -135,6 +142,53 @@ model_yaw_offset_deg = 0.0
 transform = Transform3D(3.8, 0, 0, 0, 3.8, 0, 0, 0, 3.8, 0, 40, 38)
 model_yaw_offset_deg = 0.0
 roam_radius = 50.0
+
+[node name="LaunchPad1" parent="." instance=ExtResource("12_pad")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 5, 20)
+
+[node name="LaunchPad2" parent="." instance=ExtResource("12_pad")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40, 5, 30)
+
+[node name="LaunchPad3" parent="." instance=ExtResource("12_pad")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 5, -50)
+
+[node name="Platform1" parent="." instance=ExtResource("14_plat")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25, 10, -20)
+base_offset = 2.0
+
+[node name="Platform2" parent="." instance=ExtResource("14_plat")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -27, 10, -24)
+base_offset = 4.0
+
+[node name="Platform3" parent="." instance=ExtResource("14_plat")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24, 10, -27)
+base_offset = 6.0
+
+[node name="Platform4" parent="." instance=ExtResource("14_plat")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -27, 10, -30)
+base_offset = 8.0
+
+[node name="Platform5" parent="." instance=ExtResource("14_plat")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24, 10, -32)
+base_offset = 10.0
+
+[node name="MovingPlatform1" parent="." instance=ExtResource("13_mplat")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 44, 10, 12)
+travel = Vector3(0, 10, 0)
+period = 5.0
+base_offset = 1.5
+
+[node name="MovingPlatform2" parent="." instance=ExtResource("13_mplat")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -46, 10, 8)
+travel = Vector3(0, 8, 0)
+period = 4.0
+base_offset = 1.5
+
+[node name="MovingPlatform3" parent="." instance=ExtResource("13_mplat")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 10, 66)
+travel = Vector3(18, 0, 0)
+period = 6.0
+base_offset = 2.5
 
 [node name="UI" type="CanvasLayer" parent="."]
 
