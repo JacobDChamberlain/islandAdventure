@@ -62,6 +62,10 @@ func _ready() -> void:
 	jumps_left = max_jumps
 	_spawn_point = global_position
 	add_to_group("player")   # so gems and enemies can recognize us
+	# Treat steep hillsides as walkable floor (island has slopes to climb), and
+	# stick to the ground over bumps instead of launching off every rise.
+	floor_max_angle = deg_to_rad(55.0)
+	floor_snap_length = 0.6
 	# Lock the mouse to the window so moving it turns the camera.
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	# Tilt the camera down slightly for a nice third-person angle.
@@ -69,6 +73,17 @@ func _ready() -> void:
 	# Auto-scale and plant the hero model so it fits the collision capsule.
 	_fit_model()
 	_setup_animation()
+	_snap_to_ground()
+
+func _snap_to_ground() -> void:
+	# Place exactly on the terrain using the island's own height function — no
+	# raycast (which can miss before collision is ready and cause a fall loop).
+	await get_tree().process_frame
+	var island := get_tree().get_first_node_in_group("island")
+	if island and island.has_method("height_at"):
+		global_position.y = island.height_at(global_position.x, global_position.z) + 3.0
+		velocity = Vector3.ZERO
+	_spawn_point = global_position
 
 func _setup_animation() -> void:
 	if model == null:
@@ -312,7 +327,7 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	_update_animation()
 
-	# Safety net: if you fall off the island, respawn at the start.
-	if global_position.y < -20.0:
+	# Sink into the water (or fall off the world) → respawn at the start.
+	if global_position.y < -2.0:
 		global_position = _spawn_point
 		velocity = Vector3.ZERO

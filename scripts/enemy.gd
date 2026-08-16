@@ -18,6 +18,13 @@ var _dir: float = 1.0
 func _ready() -> void:
 	_start_x = global_position.x
 	$Detector.body_entered.connect(_on_detector_body_entered)
+	_snap_to_ground()
+
+func _snap_to_ground() -> void:
+	await get_tree().process_frame
+	var island := get_tree().get_first_node_in_group("island")
+	if island and island.has_method("height_at"):
+		global_position.y = island.height_at(global_position.x, global_position.z) + 1.2
 
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():

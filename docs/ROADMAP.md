@@ -18,8 +18,12 @@ art. Never make art for a game that isn't fun to play yet.
       textured .glb, auto-fit + swapped it in for the capsule. Movement unchanged.
       NOTE: Meshy & Tripo both paywall model *downloads*; subscribed to Meshy to
       export. Free AI-3D download alt if needed later: Hunyuan3D on Hugging Face.
-- [ ] **4. The world** — generate trees / rocks / crates / a village prop set in
-      Meshy; sculpt real island terrain; scatter props.
+- [~] **4. The world** —
+      [x] Procedural organic island terrain (`island.gd`): noise coastline, hills,
+          beach→grass→forest→rock coloring, surrounding water, trimesh collision.
+          Player/gems/enemies snap to it via `height_at()`.
+      [ ] Scatter trees / rocks / foliage (free low-poly CC0 packs first, Meshy later).
+      [ ] Re-tune gem/enemy placement, add a goal.
 - [x] **5. Animation** — regenerated the hero in Meshy with **A-Pose** (Pro
       perk; rigs far cleaner than a dynamic pose). Remeshed to 30K, auto-rigged,
       applied 7 clips (Idle_6, Running, RunFast, Walking, Jump_with_Arms_Open,
