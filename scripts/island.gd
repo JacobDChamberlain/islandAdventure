@@ -26,6 +26,7 @@ func _ready() -> void:
 	_hills.noise_type = FastNoiseLite.TYPE_SIMPLEX
 	_build_terrain()
 	_build_water()
+	_build_foliage()
 
 # World height at a given x/z. Public so nothing else has to raycast if it
 # doesn't want to. Land is always y >= 0; anything y < 0 is underwater.
@@ -74,7 +75,7 @@ func _build_terrain() -> void:
 	var mat := StandardMaterial3D.new()
 	mat.vertex_color_use_as_albedo = true
 	mat.roughness = 0.95
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED  # so winding never hides the surface
+	mat.cull_mode = BaseMaterial3D.CULL_BACK  # winding faces up, so backface culling is safe + faster
 
 	var mi := MeshInstance3D.new()
 	mi.name = "Terrain"
@@ -107,3 +108,123 @@ func _build_water() -> void:
 	mi.material_override = mat
 	mi.position = Vector3(0, water_level, 0)
 	add_child(mi)
+
+# --- Foliage: procedural low-poly props scattered with MultiMesh (fast). ---
+
+func _build_foliage() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = noise_seed * 7 + 3
+	var tree := _make_tree()
+	#         mesh,     count,  min_h, max_h, max_slope, s_min, s_max, y_off, rng, shadows
+	_scatter(tree,         75, 1.8, 11.0, 1.3, 0.9, 1.9, 0.0, rng)        # spread-out pines
+	_scatter(tree,         11, 1.8,  9.0, 1.0, 2.6, 4.0, 0.0, rng)        # a few towering giants
+	_scatter(_make_bush(), 300, 1.2, 12.0, 3.0, 0.6, 1.3, 0.0, rng)
+	_scatter(_make_rock(), 150, 0.6, 20.0, 6.0, 0.5, 1.9, -0.2, rng)
+	_scatter(_make_grass(),1300, 1.2, 9.0, 2.5, 0.6, 1.4, 0.0, rng, false) # grass: no shadows
+
+func _scatter(mesh: ArrayMesh, count: int, min_h: float, max_h: float,
+		max_slope: float, s_min: float, s_max: float, y_off: float,
+		rng: RandomNumberGenerator, cast_shadow: bool = true) -> void:
+	var xforms: Array[Transform3D] = []
+	var tries := count * 8
+	var r := island_radius * 0.98
+	while xforms.size() < count and tries > 0:
+		tries -= 1
+		var ang := rng.randf() * TAU
+		var rad := sqrt(rng.randf()) * r   # uniform spread across the disk
+		var x := cos(ang) * rad
+		var z := sin(ang) * rad
+		var h := height_at(x, z)
+		if h < min_h or h > max_h:
+			continue
+		var hx := height_at(x + 1.5, z) - height_at(x - 1.5, z)
+		var hz := height_at(x, z + 1.5) - height_at(x, z - 1.5)
+		if Vector2(hx, hz).length() / 3.0 > max_slope:
+			continue
+		var s := rng.randf_range(s_min, s_max)
+		var b := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s, s))
+		xforms.append(Transform3D(b, Vector3(x, h + y_off, z)))
+	if xforms.is_empty():
+		return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = mesh
+	mm.instance_count = xforms.size()
+	for k in xforms.size():
+		mm.set_instance_transform(k, xforms[k])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	if not cast_shadow:
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mmi)
+
+func _mat(c: Color) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = c
+	m.roughness = 0.96
+	return m
+
+# Adds a primitive (offset/scaled) as a new colored surface on `mesh`.
+func _add_part(mesh: ArrayMesh, prim: Mesh, xf: Transform3D, col: Color) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.append_from(prim, 0, xf)
+	st.set_material(_mat(col))
+	st.commit(mesh)
+
+func _make_tree() -> ArrayMesh:
+	# Tall stylized pine: a trunk with three stacked cone tiers.
+	var mesh := ArrayMesh.new()
+	var brown := Color(0.34, 0.23, 0.14)
+	var green := Color(0.15, 0.41, 0.24)
+	var trunk := CylinderMesh.new()
+	trunk.top_radius = 0.14
+	trunk.bottom_radius = 0.24
+	trunk.height = 1.6
+	trunk.radial_segments = 6
+	trunk.rings = 1
+	_add_part(mesh, trunk, Transform3D(Basis(), Vector3(0, 0.8, 0)), brown)
+	_cone(mesh, 1.2, 1.6, 1.8, green)
+	_cone(mesh, 0.92, 1.5, 2.9, green)
+	_cone(mesh, 0.6, 1.4, 3.9, green)
+	return mesh
+
+func _cone(mesh: ArrayMesh, bottom_r: float, h: float, y: float, col: Color) -> void:
+	var c := CylinderMesh.new()
+	c.top_radius = 0.0
+	c.bottom_radius = bottom_r
+	c.height = h
+	c.radial_segments = 7
+	c.rings = 1
+	_add_part(mesh, c, Transform3D(Basis(), Vector3(0, y, 0)), col)
+
+func _make_bush() -> ArrayMesh:
+	var mesh := ArrayMesh.new()
+	var s := SphereMesh.new()
+	s.radius = 0.55
+	s.height = 0.8
+	s.radial_segments = 6
+	s.rings = 3
+	_add_part(mesh, s, Transform3D(Basis(), Vector3(0, 0.35, 0)), Color(0.28, 0.46, 0.22))
+	return mesh
+
+func _make_rock() -> ArrayMesh:
+	var mesh := ArrayMesh.new()
+	var s := SphereMesh.new()
+	s.radius = 0.6
+	s.height = 0.9
+	s.radial_segments = 5
+	s.rings = 3
+	_add_part(mesh, s, Transform3D(Basis().scaled(Vector3(1.3, 0.7, 1.1)), Vector3(0, 0.25, 0)), Color(0.5, 0.49, 0.47))
+	return mesh
+
+func _make_grass() -> ArrayMesh:
+	var mesh := ArrayMesh.new()
+	var c := CylinderMesh.new()
+	c.top_radius = 0.0
+	c.bottom_radius = 0.16
+	c.height = 0.6
+	c.radial_segments = 4
+	c.rings = 1
+	_add_part(mesh, c, Transform3D(Basis(), Vector3(0, 0.3, 0)), Color(0.35, 0.58, 0.28))
+	return mesh

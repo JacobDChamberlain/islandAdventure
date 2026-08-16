@@ -22,8 +22,10 @@ art. Never make art for a game that isn't fun to play yet.
       [x] Procedural organic island terrain (`island.gd`): noise coastline, hills,
           beach→grass→forest→rock coloring, surrounding water, trimesh collision.
           Player/gems/enemies snap to it via `height_at()`.
-      [ ] Scatter trees / rocks / foliage (free low-poly CC0 packs first, Meshy later).
-      [ ] Re-tune gem/enemy placement, add a goal.
+      [x] Scatter foliage via MultiMesh in `island.gd`: procedural low-poly pines
+          (+ a few giants), bushes, rocks, grass; placed by elevation/slope; grass
+          shadows off + bounded shadow distance for perf. Swap in CC0/Meshy meshes later.
+      [ ] Re-tune gem/enemy placement, add a goal, optional tree collision.
 - [x] **5. Animation** — regenerated the hero in Meshy with **A-Pose** (Pro
       perk; rigs far cleaner than a dynamic pose). Remeshed to 30K, auto-rigged,
       applied 7 clips (Idle_6, Running, RunFast, Walking, Jump_with_Arms_Open,
