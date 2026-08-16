@@ -51,6 +51,7 @@ var _sj_airborne: bool = false   # have we actually left the ground this sprint-
 var _sprinting: bool = false
 var _last_w_time: float = -999.0
 var jumps_left: int = 2
+var _step_timer: float = 0.0
 var _invuln: float = 0.0
 var _spawn_point: Vector3 = Vector3.ZERO
 
@@ -209,6 +210,7 @@ func _try_jump() -> void:
 	if jumps_left > 0:
 		velocity.y = jump_velocity
 		jumps_left -= 1
+		Sfx.jump()
 		# Jumping while sprinting on the ground plays the full run-and-jump clip.
 		if _sprinting and is_on_floor():
 			_play_oneshot(anim_sprint_jump, sprint_jump_anim_speed, sprint_jump_anim_start)
@@ -223,6 +225,7 @@ func take_hit(source_pos: Vector3) -> void:
 	if _invuln > 0.0:
 		return   # still flashing-invincible from the last hit
 	_invuln = invuln_time
+	Sfx.hurt()
 	# Shove away from whatever hit us, plus a little upward pop.
 	var away := global_position - source_pos
 	away.y = 0.0
@@ -326,6 +329,19 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 	_update_animation()
+
+	# Footsteps while actually moving on the ground.
+	if is_on_floor():
+		var step_speed := Vector2(velocity.x, velocity.z).length()
+		if step_speed > 1.5:
+			_step_timer -= delta
+			if _step_timer <= 0.0:
+				Sfx.footstep()
+				_step_timer = clampf(4.0 / step_speed, 0.22, 0.45)
+		else:
+			_step_timer = 0.0
+	else:
+		_step_timer = 0.0
 
 	# Sink into the water (or fall off the world) → respawn at the start.
 	if global_position.y < -2.0:

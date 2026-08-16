@@ -30,5 +30,7 @@ func _process(delta: float) -> void:
 
 func _on_body_entered(body: Node3D) -> void:
 	if body.is_in_group("player"):
+		Fx.poof(global_position, Color(1.0, 0.82, 0.2), 16, 0.8)
+		Sfx.gem()
 		Game.add_score(1)
 		queue_free()

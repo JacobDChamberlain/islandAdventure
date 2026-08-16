@@ -30,7 +30,12 @@ art. Never make art for a game that isn't fun to play yet.
           per-instance static collision.
       [x] Enemy AI: chase the player on sight, telegraphed attack animations
           (kicks/stomps/slams) that deal damage; player health raised to 5.
-      [ ] Add a goal / win condition; juice (particles, sound); title screen.
+      [x] Juice: particle poofs (Fx autoload) on stomp/gem, red damage flash.
+      [x] Audio (Sfx autoload, Kenney CC0): player stomp/gem/hurt/jump + paced
+          footsteps; enemies have positional 3D footsteps (louder/deeper by size)
+          and play random sci-fi "weird noises" on idle/attack. Sounds are easily
+          swappable (change the base names / folders in sfx.gd).
+      [ ] Add a goal / win condition; title screen; nicer SFX later.
 - [x] **5. Animation** — regenerated the hero in Meshy with **A-Pose** (Pro
       perk; rigs far cleaner than a dynamic pose). Remeshed to 30K, auto-rigged,
       applied 7 clips (Idle_6, Running, RunFast, Walking, Jump_with_Arms_Open,

@@ -7,6 +7,9 @@ extends Control
 @onready var win_label: Label = $WinLabel
 @onready var portrait_rect: TextureRect = $Portrait
 @onready var portrait_viewport: SubViewport = $PortraitViewport
+@onready var damage_flash: ColorRect = $DamageFlash
+
+var _last_health: int = 5
 
 # Health bar fill colors (lerped from full -> empty).
 const HEALTH_FULL := Color(0.35, 0.85, 0.4)
@@ -16,11 +19,18 @@ func _ready() -> void:
 	# Show the mini-viewport's live render inside the circular portrait.
 	portrait_rect.texture = portrait_viewport.get_texture()
 
+	_last_health = Game.health
 	Game.score_changed.connect(_on_score_changed)
 	Game.health_changed.connect(_on_health_changed)
 	Game.all_gems_collected.connect(_on_all_gems)
 	win_label.hide()
+	damage_flash.color.a = 0.0
 	call_deferred("_refresh")
+
+func _flash_damage() -> void:
+	damage_flash.color.a = 0.45
+	var t := create_tween()
+	t.tween_property(damage_flash, "color:a", 0.0, 0.45)
 
 func _refresh() -> void:
 	_on_score_changed(Game.score, Game.total_gems)
@@ -30,6 +40,9 @@ func _on_score_changed(score: int, total: int) -> void:
 	gem_label.text = "%d / %d" % [score, total]
 
 func _on_health_changed(health: int, max_health: int) -> void:
+	if health < _last_health:
+		_flash_damage()
+	_last_health = health
 	health_bar.max_value = max_health
 	health_bar.value = health
 	var frac := float(health) / float(max(max_health, 1))

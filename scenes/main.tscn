@@ -146,6 +146,14 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("5_hud")
 
+[node name="DamageFlash" type="ColorRect" parent="UI/HUD"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.8, 0.05, 0.05, 0)
+
 [node name="PortraitViewport" type="SubViewport" parent="UI/HUD"]
 own_world_3d = true
 transparent_bg = true

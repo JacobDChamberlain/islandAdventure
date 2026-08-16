@@ -46,6 +46,10 @@ var _model: Node3D
 var _island: Node = null
 var _player: Node3D = null
 var _rng := RandomNumberGenerator.new()
+var _steps_player: AudioStreamPlayer3D
+var _voice_player: AudioStreamPlayer3D
+var _step_timer: float = 0.0
+var _base_pitch: float = 1.0
 
 func _ready() -> void:
 	_rng.randomize()
@@ -57,7 +61,29 @@ func _ready() -> void:
 		global_position.y = _island.height_at(global_position.x, global_position.z) + half
 	_home = global_position
 	_setup_model()
+	_setup_audio()
 	_enter_wander()
+
+func _setup_audio() -> void:
+	var sc: float = global_transform.basis.get_scale().y
+	_base_pitch = clampf(1.0 / sqrt(sc), 0.45, 1.0)   # bigger head = deeper voice/steps
+	_steps_player = AudioStreamPlayer3D.new()
+	_steps_player.unit_size = 9.0
+	_steps_player.max_distance = 45.0
+	_steps_player.volume_db = 4.0 + (sc - 1.0) * 3.0
+	add_child(_steps_player)
+	_voice_player = AudioStreamPlayer3D.new()
+	_voice_player.unit_size = 9.0
+	_voice_player.max_distance = 50.0
+	_voice_player.volume_db = -4.0 + (sc - 1.0) * 3.0
+	add_child(_voice_player)
+
+func _play3d(p: AudioStreamPlayer3D, stream: AudioStream, pitch_var: float) -> void:
+	if p == null or stream == null:
+		return
+	p.stream = stream
+	p.pitch_scale = _base_pitch * (1.0 + _rng.randf_range(-pitch_var, pitch_var))
+	p.play()
 
 # --- Animation / state --------------------------------------------------------
 
@@ -113,6 +139,7 @@ func _enter_wander() -> void:
 func _enter_pause() -> void:
 	_state = State.PAUSE
 	_play(IDLE_ACTIONS[_rng.randi() % IDLE_ACTIONS.size()])
+	_play3d(_voice_player, Sfx.random_weird(), 0.18)   # a weird noise with the goof
 
 func _enter_chase() -> void:
 	_state = State.CHASE
@@ -123,6 +150,8 @@ func _enter_attack() -> void:
 	_atk_timer = attack_windup
 	_atk_dealt = false
 	_play(ATTACKS[_rng.randi() % ATTACKS.size()])
+	if _rng.randf() < 0.6:
+		_play3d(_voice_player, Sfx.random_weird(), 0.18)
 
 func _play(clip: String) -> void:
 	if _anim and _anim.has_animation(clip):
@@ -172,6 +201,19 @@ func _physics_process(delta: float) -> void:
 						p.take_hit(global_position)
 
 	move_and_slide()
+
+	# Positional footsteps while actually moving on the ground.
+	if is_on_floor():
+		var sh := Vector2(velocity.x, velocity.z).length()
+		if sh > 1.5:
+			_step_timer -= delta
+			if _step_timer <= 0.0:
+				_play3d(_steps_player, Sfx.random_step(), 0.2)
+				_step_timer = clampf(4.0 / sh, 0.22, 0.5)
+		else:
+			_step_timer = 0.0
+	else:
+		_step_timer = 0.0
 
 func _wander_move(delta: float) -> void:
 	var ahead := global_position + _heading * 3.0
@@ -223,6 +265,9 @@ func _on_detector_body_entered(body: Node3D) -> void:
 		_die()
 
 func _die() -> void:
+	var sc: float = global_transform.basis.get_scale().y
+	Fx.poof(global_position, Color(0.55, 0.6, 0.35), int(min(sc, 4.0) * 8) + 12, sc)
+	Sfx.stomp()
 	queue_free()
 
 # --- Model fitting ------------------------------------------------------------
