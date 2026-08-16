@@ -9,6 +9,11 @@ extends CharacterBody3D
 @export var max_jumps: int = 2           # 2 = double jump
 @export var mouse_sensitivity: float = 0.0025
 
+# --- Third-person camera (pulls in when something blocks the view) ---
+@export var cam_distance: float = 5.0
+@export var cam_height: float = 1.5
+var _cam_frac: float = 1.0   # 0..1 of the ideal distance, smoothed
+
 # --- How quickly speed changes (higher = snappier). Ground is tight; air keeps
 #     your momentum so a jump commits you to an arc instead of stopping dead. ---
 @export var ground_accel: float = 90.0   # speeding up while on the ground
@@ -355,3 +360,28 @@ func _physics_process(delta: float) -> void:
 	# Sink into the water (or fall off the world) → lose a life, respawn.
 	if global_position.y < -2.0:
 		_handle_death()
+
+	_update_camera(delta)
+
+func _update_camera(delta: float) -> void:
+	if camera == null:
+		return
+	# Ideal camera spot: up + behind the player, in pivot space.
+	var offset := Vector3(0.0, cam_height, cam_distance)
+	var from := camera_pivot.global_position
+	var ideal := camera_pivot.to_global(offset)
+	var space := get_world_3d().direct_space_state
+	var q := PhysicsRayQueryParameters3D.create(from, ideal)
+	q.collision_mask = 1          # terrain, trees/rocks, platforms (not enemies)
+	q.exclude = [get_rid()]
+	var hit := space.intersect_ray(q)
+	var target := 1.0
+	if not hit.is_empty():
+		var d: float = (hit.position - from).length()
+		target = clampf(d / offset.length() - 0.06, 0.2, 1.0)  # sit just in front of the wall
+	# Snap in instantly so we never clip; ease back out smoothly.
+	if target < _cam_frac:
+		_cam_frac = target
+	else:
+		_cam_frac = lerpf(_cam_frac, target, 1.0 - pow(0.02, delta))
+	camera.position = offset * _cam_frac
