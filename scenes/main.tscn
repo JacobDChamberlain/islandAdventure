@@ -14,6 +14,7 @@
 [ext_resource type="PackedScene" path="res://scenes/launch_pad.tscn" id="12_pad"]
 [ext_resource type="PackedScene" path="res://scenes/moving_platform.tscn" id="13_mplat"]
 [ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="14_plat"]
+[ext_resource type="PackedScene" path="res://scenes/street.tscn" id="15_street"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.32, 0.58, 0.9, 1)
@@ -189,6 +190,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 10, 66)
 travel = Vector3(18, 0, 0)
 period = 6.0
 base_offset = 2.5
+
+[node name="Street" parent="." instance=ExtResource("15_street")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 30, -52)
+y_offset = -2.5
 
 [node name="UI" type="CanvasLayer" parent="."]
 

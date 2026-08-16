@@ -1,7 +1,7 @@
 extends Node3D
 # Level root. Aims the sun, runs a day/night cycle, and kicks off the run.
 
-@export var day_length: float = 150.0   # seconds for a full day+night
+@export var day_length: float = 300.0   # seconds for a full day+night (5 min)
 var _tod: float = 0.22                   # time of day, 0..1 (starts mid-morning)
 
 @onready var _sun: DirectionalLight3D = $Sun

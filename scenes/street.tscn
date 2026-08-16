@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3 uid="uid://c0streetprop01"]
+
+[ext_resource type="Script" path="res://scripts/street.gd" id="1_street"]
+[ext_resource type="PackedScene" path="res://assets/Meshy_AI_Reno_s_Nightlife_Stre_0816205444_texture.glb" id="2_model"]
+
+[node name="Street" type="Node3D"]
+script = ExtResource("1_street")
+
+[node name="Model" parent="." instance=ExtResource("2_model")]
