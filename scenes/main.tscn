@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3 uid="uid://q0o4bbkpnnto"]
+[gd_scene load_steps=22 format=3 uid="uid://q0o4bbkpnnto"]
 
 [ext_resource type="Script" uid="uid://cx1j2tkv7s33g" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" uid="uid://bpsjqrqpvx2nr" path="res://scripts/player.gd" id="2_player"]
@@ -15,6 +15,10 @@
 [ext_resource type="PackedScene" path="res://scenes/moving_platform.tscn" id="13_mplat"]
 [ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="14_plat"]
 [ext_resource type="PackedScene" path="res://scenes/street.tscn" id="15_street"]
+[ext_resource type="PackedScene" uid="uid://c0itemicon01" path="res://scenes/item_icon.tscn" id="16_icon"]
+[ext_resource type="PackedScene" uid="uid://4m4byd8hohb3" path="res://assets/models/artifact.glb" id="17_artglb"]
+[ext_resource type="PackedScene" uid="uid://dxibqbfk7hkoa" path="res://assets/models/exotic_matter.glb" id="18_exoglb"]
+[ext_resource type="PackedScene" uid="uid://c0coinmesh01" path="res://scenes/coin_mesh.tscn" id="19_coinmesh"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.32, 0.58, 0.9, 1)
@@ -242,12 +246,26 @@ script = ExtResource("7_headportrait")
 [node name="Fill" type="DirectionalLight3D" parent="UI/HUD/PortraitViewport/PortraitRoot"]
 light_energy = 0.4
 
+[node name="ArtifactIconVP" parent="UI/HUD" instance=ExtResource("16_icon")]
+model_scene = ExtResource("17_artglb")
+glow_color = Color(1, 0.72, 0.28, 1)
+glow_energy = 2.2
+
+[node name="ExoticIconVP" parent="UI/HUD" instance=ExtResource("16_icon")]
+model_scene = ExtResource("18_exoglb")
+glow_color = Color(0.7, 0.36, 1, 1)
+glow_energy = 2.0
+
+[node name="CoinIconVP" parent="UI/HUD" instance=ExtResource("16_icon")]
+model_scene = ExtResource("19_coinmesh")
+spin_speed = 2.2
+
 [node name="StatsBg" type="Panel" parent="UI/HUD"]
 layout_mode = 0
 offset_left = 16.0
 offset_top = 14.0
 offset_right = 474.0
-offset_bottom = 216.0
+offset_bottom = 250.0
 theme_override_styles/panel = SubResource("StatsPanel")
 
 [node name="Portrait" type="TextureRect" parent="UI/HUD"]
@@ -271,38 +289,78 @@ max_value = 5.0
 value = 5.0
 show_percentage = false
 
-[node name="ArtifactCount" type="Label" parent="UI/HUD"]
+[node name="ArtifactIcon" type="TextureRect" parent="UI/HUD"]
 layout_mode = 0
 offset_left = 176.0
-offset_top = 82.0
-offset_right = 466.0
+offset_top = 78.0
+offset_right = 218.0
 offset_bottom = 120.0
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ArtifactCount" type="Label" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 226.0
+offset_top = 80.0
+offset_right = 466.0
+offset_bottom = 116.0
 theme_override_colors/font_color = Color(1, 0.82, 0.15, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 6
 theme_override_font_sizes/font_size = 26
-text = "Artifacts   0 / 0"
+text = "0 / 0"
 vertical_alignment = 1
+
+[node name="ExoticIcon" type="TextureRect" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 176.0
+offset_top = 116.0
+offset_right = 218.0
+offset_bottom = 158.0
+expand_mode = 1
+stretch_mode = 5
 
 [node name="ExoticCount" type="Label" parent="UI/HUD"]
 layout_mode = 0
-offset_left = 176.0
-offset_top = 122.0
+offset_left = 226.0
+offset_top = 118.0
 offset_right = 466.0
-offset_bottom = 160.0
+offset_bottom = 154.0
 theme_override_colors/font_color = Color(0.74, 0.42, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 6
 theme_override_font_sizes/font_size = 26
-text = "Exotic Matter   0"
+text = "0"
+vertical_alignment = 1
+
+[node name="CoinIcon" type="TextureRect" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 176.0
+offset_top = 154.0
+offset_right = 218.0
+offset_bottom = 196.0
+expand_mode = 1
+stretch_mode = 5
+
+[node name="CoinCount" type="Label" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 226.0
+offset_top = 156.0
+offset_right = 466.0
+offset_bottom = 192.0
+theme_override_colors/font_color = Color(1, 0.88, 0.32, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 26
+text = "0"
 vertical_alignment = 1
 
 [node name="LivesLabel" type="Label" parent="UI/HUD"]
 layout_mode = 0
 offset_left = 176.0
-offset_top = 162.0
+offset_top = 194.0
 offset_right = 466.0
-offset_bottom = 200.0
+offset_bottom = 230.0
 theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 6

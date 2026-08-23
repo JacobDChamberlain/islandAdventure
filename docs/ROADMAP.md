@@ -74,7 +74,10 @@ art. Never make art for a game that isn't fun to play yet.
       [x] **Meshy: Exotic Matter model** (`exotic_matter.glb`) — violet energy shard;
           uses the baked Meshy look + a violet halo light.
           (Both auto-fit to `model_size` ≈0.9 m via a runtime AABB measure.)
-      [ ] **Coins** — enemies drop a random handful of coins per kill (currency).
+      [x] **Coins** (`coin.tscn`) — heads scatter a random handful (`coin_min/max`,
+          more from bigger heads) per kill; each pops out in its own arc, spins/bobs,
+          "ching" SFX. Counter in HUD + saved; no toast (too frequent). Currency for
+          the future shop.
 - [ ] **8. Hero combat re-animation (Meshy)** — regenerate/re-rig the hero with a
       combat move set: **punch, kick, knockback/hit-react, death, shoot, dance**.
       Wire into `player.gd`'s animation state machine + actual attack hitboxes.

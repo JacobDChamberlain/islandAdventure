@@ -1,0 +1,20 @@
+[gd_scene load_steps=3 format=3 uid="uid://c0coinmesh01"]
+
+[sub_resource type="StandardMaterial3D" id="MatCoin"]
+albedo_color = Color(1, 0.85, 0.25, 1)
+metallic = 0.9
+roughness = 0.25
+emission_enabled = true
+emission = Color(1, 0.7, 0.15, 1)
+emission_energy_multiplier = 0.5
+
+[sub_resource type="CylinderMesh" id="CoinMesh"]
+top_radius = 0.5
+bottom_radius = 0.5
+height = 0.1
+radial_segments = 20
+
+[node name="CoinMesh" type="MeshInstance3D"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0)
+mesh = SubResource("CoinMesh")
+surface_material_override/0 = SubResource("MatCoin")

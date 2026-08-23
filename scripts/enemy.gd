@@ -22,8 +22,11 @@ extends CharacterBody3D
 @export var night_detect_mult: float = 1.7   # detect/lose range multiplier at night
 @export var night_speed_mult: float = 1.25    # chase-speed multiplier at night
 @export var exotic_drop_chance: float = 0.28  # chance to drop Exotic Matter when defeated
+@export var coin_min: int = 3                 # coins dropped when defeated (range)
+@export var coin_max: int = 7
 
 const EXOTIC_SCENE := preload("res://scenes/exotic_matter.tscn")
+const COIN_SCENE := preload("res://scenes/coin.tscn")
 
 # Emitted when this head is stomped, so the level can respawn it after a delay.
 signal died()
@@ -303,9 +306,22 @@ func _die() -> void:
 	var sc: float = global_transform.basis.get_scale().y
 	Fx.poof(global_position, Color(0.55, 0.6, 0.35), int(min(sc, 4.0) * 8) + 12, sc)
 	Sfx.stomp()
+	_drop_coins()
 	_maybe_drop_exotic()
 	died.emit()
 	queue_free()
+
+# Scatter a random handful of coins; bigger heads pay out a little more.
+func _drop_coins() -> void:
+	var parent := get_parent()
+	if parent == null:
+		return
+	var sc: float = global_transform.basis.get_scale().y
+	var n := _rng.randi_range(coin_min, coin_max) + int((sc - 1.0) * 2.0)
+	for i in n:
+		var c := COIN_SCENE.instantiate()
+		parent.add_child(c)
+		c.global_position = global_position + Vector3.UP * 1.0
 
 # Roll for a rare Exotic Matter drop; bigger heads are a bit likelier to yield it.
 func _maybe_drop_exotic() -> void:

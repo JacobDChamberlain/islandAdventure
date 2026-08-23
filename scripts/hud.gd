@@ -6,11 +6,18 @@ extends Control
 @onready var health_bar: ProgressBar = $HealthBar
 @onready var artifact_label: Label = $ArtifactCount
 @onready var exotic_label: Label = $ExoticCount
+@onready var coin_label: Label = $CoinCount
 @onready var lives_label: Label = $LivesLabel
 @onready var portrait_rect: TextureRect = $Portrait
 @onready var portrait_viewport: SubViewport = $PortraitViewport
 @onready var damage_flash: ColorRect = $DamageFlash
 @onready var toast_box: Control = $ToastBox
+@onready var artifact_icon_rect: TextureRect = $ArtifactIcon
+@onready var exotic_icon_rect: TextureRect = $ExoticIcon
+@onready var coin_icon_rect: TextureRect = $CoinIcon
+@onready var artifact_icon_vp: SubViewport = $ArtifactIconVP
+@onready var exotic_icon_vp: SubViewport = $ExoticIconVP
+@onready var coin_icon_vp: SubViewport = $CoinIconVP
 
 var _last_health: int = 5
 
@@ -24,10 +31,15 @@ const EXOTIC_COLOR := Color(0.74, 0.42, 1.0)
 func _ready() -> void:
 	# Show the mini-viewport's live render inside the circular portrait.
 	portrait_rect.texture = portrait_viewport.get_texture()
+	# Live 3D icons of each collectible model, rendered offscreen.
+	artifact_icon_rect.texture = artifact_icon_vp.get_texture()
+	exotic_icon_rect.texture = exotic_icon_vp.get_texture()
+	coin_icon_rect.texture = coin_icon_vp.get_texture()
 
 	_last_health = Game.health
 	Game.score_changed.connect(_on_score_changed)
 	Game.exotic_changed.connect(_on_exotic_changed)
+	Game.coins_changed.connect(_on_coins_changed)
 	Game.artifact_collected.connect(_on_artifact_collected)
 	Game.exotic_collected.connect(_on_exotic_collected)
 	Game.health_changed.connect(_on_health_changed)
@@ -43,14 +55,18 @@ func _flash_damage() -> void:
 func _refresh() -> void:
 	_on_score_changed(Game.score, Game.total_artifacts)
 	_on_exotic_changed(Game.exotic_matter)
+	_on_coins_changed(Game.coins)
 	_on_health_changed(Game.health, Game.max_health)
 	_on_lives_changed(Game.lives, Game.max_lives)
 
 func _on_score_changed(score: int, total: int) -> void:
-	artifact_label.text = "Artifacts   %d / %d" % [score, total]
+	artifact_label.text = "%d / %d" % [score, total]
 
 func _on_exotic_changed(count: int) -> void:
-	exotic_label.text = "Exotic Matter   %d" % count
+	exotic_label.text = "%d" % count
+
+func _on_coins_changed(count: int) -> void:
+	coin_label.text = "%d" % count
 
 func _on_health_changed(health: int, max_health: int) -> void:
 	if health < _last_health:

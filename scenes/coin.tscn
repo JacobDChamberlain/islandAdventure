@@ -1,0 +1,31 @@
+[gd_scene load_steps=5 format=3 uid="uid://c0coin00001"]
+
+[ext_resource type="Script" path="res://scripts/coin.gd" id="1_coin"]
+
+[sub_resource type="StandardMaterial3D" id="MatCoin"]
+albedo_color = Color(1, 0.85, 0.25, 1)
+metallic = 0.9
+roughness = 0.25
+emission_enabled = true
+emission = Color(1, 0.7, 0.15, 1)
+emission_energy_multiplier = 0.6
+
+[sub_resource type="CylinderMesh" id="CoinMesh"]
+top_radius = 0.28
+bottom_radius = 0.28
+height = 0.06
+radial_segments = 16
+
+[sub_resource type="SphereShape3D" id="CoinShape"]
+radius = 0.5
+
+[node name="Coin" type="Area3D"]
+script = ExtResource("1_coin")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0)
+mesh = SubResource("CoinMesh")
+surface_material_override/0 = SubResource("MatCoin")
+
+[node name="Collision" type="CollisionShape3D" parent="."]
+shape = SubResource("CoinShape")

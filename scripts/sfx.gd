@@ -1,7 +1,7 @@
 extends Node
 # Global sound helper. Loads sound variants once and plays a random one (with a
 # little pitch variation) through a pool of players so sounds can overlap.
-# Player SFX: Sfx.stomp(), Sfx.artifact(), Sfx.exotic(), Sfx.hurt(), Sfx.jump(), Sfx.footstep().
+# Player SFX: Sfx.stomp(), Sfx.artifact(), Sfx.exotic(), Sfx.coin(), Sfx.hurt(), Sfx.jump(), Sfx.footstep().
 # Enemies grab streams directly via random_step()/random_weird() to play them
 # from their own positional (3D) audio players.
 
@@ -15,6 +15,7 @@ const WEIRD_BASES := ["forceField", "laserRetro", "laserSmall", "slime", "impact
 var _stomp: Array[AudioStream] = []
 var _artifact: Array[AudioStream] = []
 var _exotic: Array[AudioStream] = []
+var _coin: Array[AudioStream] = []
 var _hurt: Array[AudioStream] = []
 var _step: Array[AudioStream] = []
 var _jump: Array[AudioStream] = []
@@ -33,6 +34,8 @@ func _ready() -> void:
 	_exotic = _variants(SCIFI + "forceField")
 	if _exotic.is_empty():
 		_exotic = _one(INTERFACE + "confirmation_001.ogg")
+	# Coins get a bright "ching" (multiple variants → a nice cascade on a burst).
+	_coin = _variants(INTERFACE + "glass")
 	_step = _variants(IMPACT + "footstep_grass")
 	_jump = _variants(IMPACT + "impactSoft_medium")
 	for base in WEIRD_BASES:
@@ -100,6 +103,7 @@ func _play(bank: Array[AudioStream], volume_db: float, pitch_var: float) -> void
 func stomp() -> void: _play(_stomp, 0.0, 0.15)
 func artifact() -> void: _play(_artifact, -3.0, 0.1)
 func exotic() -> void: _play(_exotic, -2.0, 0.08)
+func coin() -> void: _play(_coin, -6.0, 0.18)
 func hurt() -> void: _play(_hurt, 1.0, 0.12)
 func footstep() -> void: _play(_step, -9.0, 0.22)
 func jump() -> void: _play(_jump, -5.0, 0.1)

@@ -33,14 +33,16 @@ and does GUI work — the editor is a native app I can't click into.
 
 **Autoloads** (globals, by name):
 - `Game` — run state: score, `total_artifacts`, `collected_artifacts`,
-  `exotic_matter`, health, lives, `is_night`; signals `score_changed`/
-  `exotic_changed`/`health_changed`/`lives_changed`/`all_artifacts_collected`/
-  `game_over`. `new_run(total)` resets a run; `collect(name)`, `collect_exotic()`,
-  `damage()`, `lose_life()`. **Artifacts** are the placed collectibles that gate the
-  win; **Exotic Matter** is a rare pickup dropped by defeated heads (its own counter,
-  never gates the win). `is_night` is written by `main.gd` and read by enemies.
+  `exotic_matter`, `coins`, health, lives, `is_night`; signals `score_changed`/
+  `exotic_changed`/`coins_changed`/`health_changed`/`lives_changed`/
+  `all_artifacts_collected`/`game_over` (+ `artifact_collected`/`exotic_collected`
+  which fire only on a real pickup, for toasts). `new_run(total)` resets a run;
+  `collect(name)`, `collect_exotic()`, `collect_coin()`, `damage()`, `lose_life()`.
+  **Artifacts** are the placed collectibles that gate the win; **Exotic Matter**
+  (rare) and **coins** (common) are dropped by defeated heads and never gate the win.
+  `is_night` is written by `main.gd` and read by enemies.
 - `Fx` — `poof(pos, color, amount, power)` spawns a one-shot GPUParticles3D.
-- `Sfx` — Kenney CC0 sounds. Player: `stomp/artifact/exotic/hurt/jump/footstep`. UI:
+- `Sfx` — Kenney CC0 sounds. Player: `stomp/artifact/exotic/coin/hurt/jump/footstep`. UI:
   `ui_move/ui_select`, `wire_button(b)`. Enemies grab `random_step()/random_weird()`
   for their own 3D players. **Swap a sound = change the base name in `sfx.gd`.**
 - `Settings` — volume/sensitivity/fullscreen, persisted to `user://settings.cfg`;
@@ -51,8 +53,9 @@ and does GUI work — the editor is a native app I can't click into.
 
 **Scenes**: `title.tscn` (synthwave shader bg) → `main.tscn` (the level). Reusable
 instances: `collectible.tscn` (artifact — group `"artifact"`), `exotic_matter.tscn`
-(rare enemy drop — group `"exotic"`), `enemy.tscn`, `launch_pad.tscn`,
-`moving_platform.tscn`, `platform.tscn`. Pause menu + end screen live in `main.tscn`
+(rare enemy drop — group `"exotic"`), `coin.tscn` (common enemy drop — group
+`"coin"`), `enemy.tscn`, `launch_pad.tscn`, `moving_platform.tscn`, `platform.tscn`.
+Pause menu + end screen live in `main.tscn`
 on `process_mode = ALWAYS` CanvasLayers so they run while the tree is paused.
 
 **The island** (`island.gd` on the `Island` node) is fully procedural: noise-shaped
@@ -73,7 +76,11 @@ and exposes **`height_at(x, z)`** — the source of truth for ground height.
   frame 0, so clips play in place and movement comes only from code velocity.
 - **Terrain triangle winding must face up** (`island._tri` winds `a,c,b`/`a,d,c`)
   or `is_on_floor` fails and rays pass through.
-- Groups used: `player`, `artifact`, `exotic`, `enemy`, `island`.
+- Groups used: `player`, `artifact`, `exotic`, `coin`, `enemy`, `island`.
+- **Enemy drops** (`exotic_matter.gd`, `coin.gd`) spawn mid-air and **pop out in an
+  arc** (`_vel` + `drop_gravity`, integrated in `_process` until they reach
+  `height_at()`), then can't be collected for `arm_delay` seconds — so drops are
+  visible before you sweep them up instead of vacuuming instantly under the kill.
 - Enemies are on **collision layer 2**, player only collides with layer 1, so the
   player passes through enemies; the enemy's Detector Area handles stomp vs bump.
 - **Enemy respawn**: `enemy.gd` emits `died()` on stomp; `main.gd` captures each
@@ -114,7 +121,8 @@ user's rigged head-bust `assets/models/nightmare.glb`. Raw zips are gitignored.
 Complete loop: title → play → win (all 8 artifacts) / lose (3 lives) → replay. Has:
 hero movement (run/double-jump/sprint/roll), 6 AI enemies (wander/chase/attack)
 that **respawn** and get **more aggressive at night**, artifacts + rare Exotic
-Matter drops, HUD (live 3D head portrait), particles + full audio, a long-day/
+Matter + coin drops (arc-pop pickups), pickup toasts, HUD (live 3D head portrait),
+particles + full audio, a long-day/
 short-night cycle, launch pads / moving + static platforms, settings, 3-slot
 save/load.
 Next ideas: more props (Meshy), deploy to itch.io (export → web build). See

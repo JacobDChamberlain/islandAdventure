@@ -1,0 +1,20 @@
+[gd_scene load_steps=2 format=3 uid="uid://c0itemicon01"]
+
+[ext_resource type="Script" path="res://scripts/item_icon.gd" id="1_icon"]
+
+[node name="ItemIcon" type="SubViewport"]
+own_world_3d = true
+transparent_bg = true
+size = Vector2i(96, 96)
+render_target_update_mode = 4
+script = ExtResource("1_icon")
+
+[node name="Stage" type="Node3D" parent="."]
+
+[node name="Camera3D" type="Camera3D" parent="Stage"]
+
+[node name="Key" type="DirectionalLight3D" parent="Stage"]
+light_energy = 1.8
+
+[node name="Fill" type="DirectionalLight3D" parent="Stage"]
+light_energy = 0.6

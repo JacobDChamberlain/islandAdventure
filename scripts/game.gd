@@ -5,6 +5,7 @@ extends Node
 
 signal score_changed(score: int, total: int)
 signal exotic_changed(count: int)
+signal coins_changed(count: int)
 signal artifact_collected(score: int, total: int)   # fires only on an actual pickup
 signal exotic_collected(count: int)                  # fires only on an actual pickup
 signal health_changed(health: int, max_health: int)
@@ -16,6 +17,7 @@ var total_artifacts: int = 0   # how many artifacts exist in the level
 var score: int = 0             # how many you've picked up
 var collected_artifacts: Array = []   # node names of collected artifacts (for saving)
 var exotic_matter: int = 0     # rare pickup dropped by defeated heads
+var coins: int = 0             # common currency dropped by defeated heads
 var max_health: int = 5
 var health: int = 5
 var max_lives: int = 3
@@ -28,10 +30,12 @@ func new_run(total: int) -> void:
 	score = 0
 	collected_artifacts = []
 	exotic_matter = 0
+	coins = 0
 	health = max_health
 	lives = max_lives
 	score_changed.emit(score, total_artifacts)
 	exotic_changed.emit(exotic_matter)
+	coins_changed.emit(coins)
 	health_changed.emit(health, max_health)
 	lives_changed.emit(lives, max_lives)
 
@@ -61,6 +65,11 @@ func collect_exotic(amount: int = 1) -> void:
 	exotic_matter += amount
 	exotic_changed.emit(exotic_matter)
 	exotic_collected.emit(exotic_matter)
+
+# A coin was picked up. No toast (coins are frequent) — just the counter + sound.
+func collect_coin(amount: int = 1) -> void:
+	coins += amount
+	coins_changed.emit(coins)
 
 # Returns true if this hit brought the player to 0 health.
 func damage(amount: int = 1) -> bool:
