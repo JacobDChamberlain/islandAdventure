@@ -23,6 +23,7 @@ Fx="*res://scripts/fx.gd"
 Sfx="*res://scripts/sfx.gd"
 Settings="*res://scripts/settings.gd"
 SaveManager="*res://scripts/save_manager.gd"
+Dialogue="*res://scenes/dialogue.tscn"
 
 [display]
 

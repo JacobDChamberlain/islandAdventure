@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3 uid="uid://q0o4bbkpnnto"]
+[gd_scene load_steps=24 format=3 uid="uid://q0o4bbkpnnto"]
 
 [ext_resource type="Script" uid="uid://cx1j2tkv7s33g" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" uid="uid://bpsjqrqpvx2nr" path="res://scripts/player.gd" id="2_player"]
@@ -19,6 +19,7 @@
 [ext_resource type="PackedScene" uid="uid://4m4byd8hohb3" path="res://assets/models/artifact.glb" id="17_artglb"]
 [ext_resource type="PackedScene" uid="uid://dxibqbfk7hkoa" path="res://assets/models/exotic_matter.glb" id="18_exoglb"]
 [ext_resource type="PackedScene" uid="uid://c0coinmesh01" path="res://scenes/coin_mesh.tscn" id="19_coinmesh"]
+[ext_resource type="PackedScene" uid="uid://c0npc000001" path="res://scenes/npc.tscn" id="20_npc"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.32, 0.58, 0.9, 1)
@@ -149,6 +150,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 30, 68)
 
 [node name="Artifact8" parent="." instance=ExtResource("3_gem")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48, 30, 48)
+
+[node name="Elder" parent="." instance=ExtResource("20_npc")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 30, 4)
 
 [node name="Enemy1" parent="." instance=ExtResource("4_enemy")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26, 30, 12)

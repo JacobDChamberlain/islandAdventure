@@ -11,6 +11,7 @@ signal exotic_collected(count: int)                  # fires only on an actual p
 signal health_changed(health: int, max_health: int)
 signal lives_changed(lives: int, max_lives: int)
 signal all_artifacts_collected()
+signal quest_started()          # the Elder's artifact hunt has begun
 signal game_over()
 
 var total_artifacts: int = 0   # how many artifacts exist in the level
@@ -23,6 +24,8 @@ var health: int = 5
 var max_lives: int = 3
 var lives: int = 3
 var is_night: bool = false      # set by main.gd's day/night cycle; enemies read it
+var quest_active: bool = false  # artifacts stay hidden until the Elder starts the hunt
+var cinematic: bool = false     # true during a scripted moment (dialogue/finale): freeze the player
 
 # Called by main.gd when a level loads: sets a fresh run with `total` artifacts.
 func new_run(total: int) -> void:
@@ -31,6 +34,7 @@ func new_run(total: int) -> void:
 	collected_artifacts = []
 	exotic_matter = 0
 	coins = 0
+	quest_active = false
 	health = max_health
 	lives = max_lives
 	score_changed.emit(score, total_artifacts)
@@ -57,8 +61,15 @@ func collect(artifact_name: String) -> void:
 		collected_artifacts.append(artifact_name)
 	score_changed.emit(score, total_artifacts)
 	artifact_collected.emit(score, total_artifacts)
-	if total_artifacts > 0 and score >= total_artifacts:
-		all_artifacts_collected.emit()
+	# NOTE: winning no longer fires here — you must return to the Elder to finish
+	# the quest (he celebrates, then complete_quest() ends the run).
+
+# Called by the Elder once you turn in a full set of artifacts (after his backflip).
+func complete_quest() -> void:
+	all_artifacts_collected.emit()
+
+func artifacts_all_found() -> bool:
+	return total_artifacts > 0 and score >= total_artifacts
 
 # A blob of Exotic Matter was picked up (dropped by a defeated head).
 func collect_exotic(amount: int = 1) -> void:
@@ -80,3 +91,10 @@ func damage(amount: int = 1) -> bool:
 func revive() -> void:
 	health = max_health
 	health_changed.emit(health, max_health)
+
+# The Elder gives the quest: reveal the artifacts.
+func begin_quest() -> void:
+	if quest_active:
+		return
+	quest_active = true
+	quest_started.emit()

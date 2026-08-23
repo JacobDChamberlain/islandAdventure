@@ -39,6 +39,7 @@ func save_to_slot(slot: int) -> void:
 		"collected": Game.collected_artifacts,
 		"exotic": Game.exotic_matter,
 		"coins": Game.coins,
+		"quest": Game.quest_active,
 	}
 	var f := FileAccess.open(_slot_path(slot), FileAccess.WRITE)
 	if f:
@@ -72,10 +73,14 @@ func apply_pending() -> void:
 	Game.health = int(data.get("health", Game.max_health))
 	Game.exotic_matter = int(data.get("exotic", 0))
 	Game.coins = int(data.get("coins", 0))
+	Game.quest_active = bool(data.get("quest", false))
 	Game.collected_artifacts = data.get("collected", [])
 	for artifact in tree.get_nodes_in_group("artifact"):
 		if String(artifact.name) in Game.collected_artifacts:
 			artifact.queue_free()
+	# If the quest was already underway, reveal the remaining artifacts.
+	if Game.quest_active:
+		Game.quest_started.emit()
 	Game.score_changed.emit(Game.score, Game.total_artifacts)
 	Game.exotic_changed.emit(Game.exotic_matter)
 	Game.coins_changed.emit(Game.coins)

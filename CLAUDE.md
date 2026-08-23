@@ -48,13 +48,18 @@ and does GUI work — the editor is a native app I can't click into.
 - `Settings` — volume/sensitivity/fullscreen, persisted to `user://settings.cfg`;
   F toggles fullscreen (only works in a non-embedded window).
 - `SaveManager` — 3 JSON slots (`user://save_N.json`): player pos/health/score/
-  exotic matter/collected artifacts. `apply_pending()` (called by main.gd) waits 2
-  frames then applies.
+  exotic matter/coins/quest-active/collected artifacts. `apply_pending()` (called by
+  main.gd) waits 2 frames then applies.
+- `Dialogue` — a text dialogue box (autoload scene `dialogue.tscn`). `start(speaker,
+  lines)`, E/Space advances, `finished` signal; `active` is true while open. NPCs
+  drive it. `Game.cinematic` (set by the NPC around dialogue + the finale) freezes the
+  player, zooms the camera in, and makes enemies stand down.
 
 **Scenes**: `title.tscn` (synthwave shader bg) → `main.tscn` (the level). Reusable
 instances: `collectible.tscn` (artifact — group `"artifact"`), `exotic_matter.tscn`
 (rare enemy drop — group `"exotic"`), `coin.tscn` (common enemy drop — group
-`"coin"`), `enemy.tscn`, `launch_pad.tscn`, `moving_platform.tscn`, `platform.tscn`.
+`"coin"`), `npc.tscn` (quest-giver "Spencer" — group `"npc"`), `enemy.tscn`,
+`launch_pad.tscn`, `moving_platform.tscn`, `platform.tscn`.
 Pause menu + end screen live in `main.tscn`
 on `process_mode = ALWAYS` CanvasLayers so they run while the tree is paused.
 
@@ -76,7 +81,11 @@ and exposes **`height_at(x, z)`** — the source of truth for ground height.
   frame 0, so clips play in place and movement comes only from code velocity.
 - **Terrain triangle winding must face up** (`island._tri` winds `a,c,b`/`a,d,c`)
   or `is_on_floor` fails and rays pass through.
-- Groups used: `player`, `artifact`, `exotic`, `coin`, `enemy`, `island`.
+- Groups used: `player`, `artifact`, `exotic`, `coin`, `enemy`, `npc`, `island`.
+- **Quest gating**: artifacts hide + disable pickup until `Game.quest_active` (set by
+  the Elder's first conversation, which emits `quest_started`). The win no longer
+  fires on collecting the last artifact — the NPC calls `Game.complete_quest()` after
+  its backflip. Save restores `quest_active` and re-emits `quest_started`.
 - **Enemy drops** (`exotic_matter.gd`, `coin.gd`) spawn mid-air and **pop out in an
   arc** (`_vel` + `drop_gravity`, integrated in `_process` until they reach
   `height_at()`), then can't be collected for `arm_delay` seconds — so drops are
@@ -124,7 +133,8 @@ user's rigged head-bust `assets/models/nightmare.glb`. Raw zips are gitignored.
 
 ## Status
 
-Complete loop: title → play → win (all 8 artifacts) / lose (3 lives) → replay. Has:
+Complete loop: title → play → talk to the Elder (quest-giver) → collect all 8
+artifacts → turn them in (he celebrates) = win / lose (3 lives) → replay. Has:
 hero movement (run/double-jump/sprint/roll) + **melee combat** (punch/kick/flying
 kick, dances), 6 AI enemies (wander/chase/attack) with HP + knockback
 that **respawn** and get **more aggressive at night**, artifacts + rare Exotic

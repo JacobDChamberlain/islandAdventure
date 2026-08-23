@@ -90,10 +90,16 @@ art. Never make art for a game that isn't fun to play yet.
       [x] Player: Hit_Reaction on taking a hit, Dead on death, G/H dance emotes
           (All_Night_Dance / Breakdance_1990), cancelled by moving.
       [ ] Shoot — no shoot clip in this export yet; add projectile + wire when ready.
-- [ ] **9. NPC quest-giver (Meshy)** — user already has a model; needs **idle +
-      conversation animations** applied in Meshy. Standing NPC you talk to; gives
-      the quest to collect the Artifacts. Dialogue = **text for now**, recorded/
-      generated **audio later**. **Artifacts stay hidden until the quest starts.**
+- [x] **9. NPC quest-giver (Meshy)** — "Spencer" (`npc.glb`: Idle_3, Electrocution_
+      Reaction, Excited_Walk_M, Backflip, +locomotion). Stand near → world-space "Press
+      E to talk" billboard → `Dialogue` autoload text box (E/Space to advance).
+      - First talk starts the quest → artifacts appear (hidden/non-collectible until
+        then, via `Game.quest_active` + `quest_started` signal; gated in collectible.gd).
+      - Talking mid-quest plays the shock reaction + a "keep going" line; talking with
+        the full set plays excited-walk → backflip (crossfaded, no pause) → `complete_
+        quest()` ends the run. Collecting the last artifact no longer auto-wins.
+      - `Game.cinematic` freezes the player + zooms the camera in during dialogue/finale
+        and makes enemies stand down. Dialogue = text; audio later.
 - [ ] **10. Shop & reality-bending weapons** — a vendor NPC where you spend
       **coins + Exotic Matter** to craft weapons that either have a ridiculous
       kill or a **reality-bending effect** on the world. Example idea: shoot an

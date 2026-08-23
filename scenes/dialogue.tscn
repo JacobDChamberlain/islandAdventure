@@ -1,0 +1,64 @@
+[gd_scene load_steps=3 format=3 uid="uid://c0dialogue01"]
+
+[ext_resource type="Script" path="res://scripts/dialogue.gd" id="1_dlg"]
+
+[sub_resource type="StyleBoxFlat" id="DlgBox"]
+bg_color = Color(0.04, 0.05, 0.08, 0.92)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.5, 0.42, 0.2, 0.8)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[node name="Dialogue" type="CanvasLayer"]
+layer = 12
+script = ExtResource("1_dlg")
+
+[node name="Panel" type="Panel" parent="."]
+anchor_left = 0.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 140.0
+offset_top = -200.0
+offset_right = -140.0
+offset_bottom = -32.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_styles/panel = SubResource("DlgBox")
+
+[node name="Margin" type="MarginContainer" parent="Panel"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="Panel/Margin"]
+theme_override_constants/separation = 8
+
+[node name="Speaker" type="Label" parent="Panel/Margin/VBox"]
+theme_override_colors/font_color = Color(1, 0.82, 0.35, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 24
+text = "Elder"
+
+[node name="Body" type="Label" parent="Panel/Margin/VBox"]
+size_flags_vertical = 3
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 22
+autowrap_mode = 2
+
+[node name="Hint" type="Label" parent="Panel/Margin/VBox"]
+modulate = Color(1, 1, 1, 0.55)
+theme_override_font_sizes/font_size = 15
+text = "E / Space to continue"
+horizontal_alignment = 2

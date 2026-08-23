@@ -1,0 +1,30 @@
+[gd_scene load_steps=4 format=3 uid="uid://c0npc000001"]
+
+[ext_resource type="Script" path="res://scripts/npc.gd" id="1_npc"]
+[ext_resource type="PackedScene" uid="uid://kwaxtaw04uqv" path="res://assets/models/npc.glb" id="2_model"]
+
+[sub_resource type="SphereShape3D" id="TalkShape"]
+radius = 3.5
+
+[node name="NPC" type="Node3D"]
+script = ExtResource("1_npc")
+
+[node name="Model" parent="." instance=ExtResource("2_model")]
+
+[node name="TalkZone" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 1
+
+[node name="Shape" type="CollisionShape3D" parent="TalkZone"]
+shape = SubResource("TalkShape")
+
+[node name="Prompt" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+pixel_size = 0.005
+billboard = 1
+no_depth_test = true
+modulate = Color(1, 0.95, 0.6, 1)
+outline_modulate = Color(0, 0, 0, 1)
+outline_size = 12
+font_size = 40
+text = "Press E to talk"

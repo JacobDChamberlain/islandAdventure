@@ -14,6 +14,7 @@ extends Area3D
 
 var _base_y: float = 0.0
 var _time: float = 0.0
+var _active: bool = false   # artifacts stay hidden until the Elder starts the quest
 
 func _ready() -> void:
 	add_to_group("artifact")
@@ -21,7 +22,20 @@ func _ready() -> void:
 	_apply_glow($Model)
 	_base_y = position.y
 	body_entered.connect(_on_body_entered)
+	Game.quest_started.connect(_on_quest_started)
 	_snap_to_ground()
+	_set_active(Game.quest_active)
+
+# Show/hide + enable/disable pickup based on whether the quest is running.
+func _set_active(on: bool) -> void:
+	_active = on
+	visible = on
+	monitoring = on
+
+func _on_quest_started() -> void:
+	if not _active:
+		_set_active(true)
+		Fx.poof(global_position, Color(1.0, 0.82, 0.2), 18, 0.9)
 
 # The generated artifact is dark brown stone; brighten its albedo and add a warm
 # gold emission so it reads as a glowing power source (even at night).
@@ -96,7 +110,7 @@ func _process(delta: float) -> void:
 	position.y = _base_y + sin(_time * bob_speed) * bob_height
 
 func _on_body_entered(body: Node3D) -> void:
-	if body.is_in_group("player"):
+	if _active and body.is_in_group("player"):
 		Fx.poof(global_position, Color(1.0, 0.82, 0.2), 16, 0.8)
 		Sfx.artifact()
 		Game.collect(name)

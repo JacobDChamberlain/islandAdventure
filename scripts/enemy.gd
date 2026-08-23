@@ -198,6 +198,18 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		return
 
+	# Stand down during a scripted moment (conversation or the Elder's finale) so
+	# nothing attacks the frozen player.
+	if Game.cinematic:
+		if not is_on_floor():
+			velocity.y -= gravity * delta
+		else:
+			velocity.y = 0.0
+		velocity.x = move_toward(velocity.x, 0.0, 30.0 * delta)
+		velocity.z = move_toward(velocity.z, 0.0, 30.0 * delta)
+		move_and_slide()
+		return
+
 	if not is_on_floor():
 		velocity.y -= gravity * delta
 	else:

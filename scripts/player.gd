@@ -12,7 +12,10 @@ extends CharacterBody3D
 # --- Third-person camera (pulls in when something blocks the view) ---
 @export var cam_distance: float = 5.0
 @export var cam_height: float = 1.5
+@export var cam_dialogue_distance: float = 2.6   # zoom-in distance while talking
+@export var cam_dialogue_height: float = 1.2
 var _cam_frac: float = 1.0   # 0..1 of the ideal distance, smoothed
+var _cine_blend: float = 0.0 # 0..1 toward the zoomed-in conversation framing
 
 # --- How quickly speed changes (higher = snappier). Ground is tight; air keeps
 #     your momentum so a jump commits you to an arc instead of stopping dead. ---
@@ -364,6 +367,9 @@ func _handle_death() -> void:
 	_invuln = invuln_time
 
 func _input(event: InputEvent) -> void:
+	# Frozen during a scripted moment (dialogue box or the Elder's finale).
+	if Dialogue.active or Game.cinematic:
+		return
 	# Mouse look: horizontal turns the whole body, vertical tilts only the camera.
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var sens := mouse_sensitivity * Settings.sensitivity
@@ -401,6 +407,15 @@ func _physics_process(delta: float) -> void:
 	# Count down invulnerability after a hit.
 	if _invuln > 0.0:
 		_invuln -= delta
+
+	# Frozen in place while talking to an NPC (or during the Elder's finale).
+	if Dialogue.active or Game.cinematic:
+		velocity.x = move_toward(velocity.x, 0.0, ground_decel * delta)
+		velocity.z = move_toward(velocity.z, 0.0, ground_decel * delta)
+		velocity.y = velocity.y - gravity * delta if not is_on_floor() else 0.0
+		move_and_slide()
+		_update_animation()
+		return
 
 	# Refill jumps only while genuinely resting on the ground (not on the way up).
 	if is_on_floor() and velocity.y <= 0.0:
@@ -490,8 +505,13 @@ func _physics_process(delta: float) -> void:
 func _update_camera(delta: float) -> void:
 	if camera == null:
 		return
+	# Blend toward the zoomed-in conversation framing during dialogue/finale.
+	var cine := Dialogue.active or Game.cinematic
+	_cine_blend = move_toward(_cine_blend, 1.0 if cine else 0.0, delta / 0.35)
+	var use_dist := lerpf(cam_distance, cam_dialogue_distance, _cine_blend)
+	var use_height := lerpf(cam_height, cam_dialogue_height, _cine_blend)
 	# Ideal camera spot: up + behind the player, in pivot space.
-	var offset := Vector3(0.0, cam_height, cam_distance)
+	var offset := Vector3(0.0, use_height, use_dist)
 	var from := camera_pivot.global_position
 	var ideal := camera_pivot.to_global(offset)
 	var space := get_world_3d().direct_space_state
