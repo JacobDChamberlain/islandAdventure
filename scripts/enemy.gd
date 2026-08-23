@@ -19,6 +19,14 @@ extends CharacterBody3D
 @export var gravity: float = 30.0
 @export var model_height: float = 2.6
 @export var model_yaw_offset_deg: float = 180.0
+@export var night_detect_mult: float = 1.7   # detect/lose range multiplier at night
+@export var night_speed_mult: float = 1.25    # chase-speed multiplier at night
+@export var exotic_drop_chance: float = 0.28  # chance to drop Exotic Matter when defeated
+
+const EXOTIC_SCENE := preload("res://scenes/exotic_matter.tscn")
+
+# Emitted when this head is stomped, so the level can respawn it after a delay.
+signal died()
 
 enum State { WANDER, PAUSE, CHASE, ATTACK, HIT }
 
@@ -55,6 +63,7 @@ var _base_pitch: float = 1.0
 
 func _ready() -> void:
 	_rng.randomize()
+	add_to_group("enemy")
 	$Detector.body_entered.connect(_on_detector_body_entered)
 	await get_tree().process_frame
 	_island = get_tree().get_first_node_in_group("island")
@@ -108,6 +117,16 @@ func _get_player() -> Node3D:
 		_player = get_tree().get_first_node_in_group("player")
 	return _player
 
+# --- Night aggression: heads see farther, hunt longer, and run faster at night.
+func _detect_range() -> float:
+	return detect_range * (night_detect_mult if Game.is_night else 1.0)
+
+func _lose_range() -> float:
+	return lose_range * (night_detect_mult if Game.is_night else 1.0)
+
+func _chase_speed() -> float:
+	return chase_speed * (night_speed_mult if Game.is_night else 1.0)
+
 func _on_anim_finished(_name: String) -> void:
 	# Idle actions and attacks are one-shots → decide what to do next.
 	if _state == State.PAUSE or _state == State.ATTACK or _state == State.HIT:
@@ -120,7 +139,7 @@ func _reevaluate() -> void:
 		if d <= attack_range:
 			_enter_attack()
 			return
-		elif d <= detect_range:
+		elif d <= _detect_range():
 			_enter_chase()
 			return
 	_enter_wander()
@@ -174,17 +193,17 @@ func _physics_process(delta: float) -> void:
 
 	match _state:
 		State.WANDER:
-			if p and dist <= detect_range:
+			if p and dist <= _detect_range():
 				_enter_chase()
 			else:
 				_wander_move(delta)
 		State.PAUSE:
-			if p and dist <= detect_range:
+			if p and dist <= _detect_range():
 				_enter_chase()
 			else:
 				_brake(delta)
 		State.CHASE:
-			if p == null or dist > lose_range:
+			if p == null or dist > _lose_range():
 				_enter_wander()
 			elif dist <= attack_range:
 				_enter_attack()
@@ -240,8 +259,9 @@ func _chase_move(p: Node3D, delta: float) -> void:
 	dir.y = 0.0
 	if dir.length() > 0.01:
 		dir = dir.normalized()
-	velocity.x = dir.x * chase_speed
-	velocity.z = dir.z * chase_speed
+	var cs := _chase_speed()
+	velocity.x = dir.x * cs
+	velocity.z = dir.z * cs
 	_face(dir, delta)
 
 func _brake(delta: float) -> void:
@@ -283,7 +303,22 @@ func _die() -> void:
 	var sc: float = global_transform.basis.get_scale().y
 	Fx.poof(global_position, Color(0.55, 0.6, 0.35), int(min(sc, 4.0) * 8) + 12, sc)
 	Sfx.stomp()
+	_maybe_drop_exotic()
+	died.emit()
 	queue_free()
+
+# Roll for a rare Exotic Matter drop; bigger heads are a bit likelier to yield it.
+func _maybe_drop_exotic() -> void:
+	var sc: float = global_transform.basis.get_scale().y
+	var chance := clampf(exotic_drop_chance * (1.0 + (sc - 1.0) * 0.2), 0.0, 0.9)
+	if _rng.randf() > chance:
+		return
+	var drop := EXOTIC_SCENE.instantiate()
+	var parent := get_parent()
+	if parent == null:
+		return
+	parent.add_child(drop)
+	drop.global_position = global_position + Vector3.UP * 1.0
 
 # --- Model fitting ------------------------------------------------------------
 

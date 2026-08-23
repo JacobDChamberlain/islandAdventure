@@ -1,7 +1,7 @@
 extends Node
 # Global sound helper. Loads sound variants once and plays a random one (with a
 # little pitch variation) through a pool of players so sounds can overlap.
-# Player SFX: Sfx.stomp(), Sfx.gem(), Sfx.hurt(), Sfx.jump(), Sfx.footstep().
+# Player SFX: Sfx.stomp(), Sfx.artifact(), Sfx.exotic(), Sfx.hurt(), Sfx.jump(), Sfx.footstep().
 # Enemies grab streams directly via random_step()/random_weird() to play them
 # from their own positional (3D) audio players.
 
@@ -13,7 +13,8 @@ const SCIFI := "res://assets/audio/kenney_sci-fi-sounds/Audio/"
 const WEIRD_BASES := ["forceField", "laserRetro", "laserSmall", "slime", "impactMetal"]
 
 var _stomp: Array[AudioStream] = []
-var _gem: Array[AudioStream] = []
+var _artifact: Array[AudioStream] = []
+var _exotic: Array[AudioStream] = []
 var _hurt: Array[AudioStream] = []
 var _step: Array[AudioStream] = []
 var _jump: Array[AudioStream] = []
@@ -27,13 +28,17 @@ var _next: int = 0
 func _ready() -> void:
 	_stomp = _variants(IMPACT + "impactSoft_heavy")
 	_hurt = _variants(IMPACT + "impactWood_heavy")
-	_gem = _variants(INTERFACE + "select")
+	_artifact = _one(INTERFACE + "select_003.ogg")
+	# Exotic Matter gets a distinct, sci-fi "special" chime.
+	_exotic = _variants(SCIFI + "forceField")
+	if _exotic.is_empty():
+		_exotic = _one(INTERFACE + "confirmation_001.ogg")
 	_step = _variants(IMPACT + "footstep_grass")
 	_jump = _variants(IMPACT + "impactSoft_medium")
 	for base in WEIRD_BASES:
 		_weird.append_array(_variants(SCIFI + base))
-	_ui_move = _variants(INTERFACE + "tick")
-	_ui_select = _variants(INTERFACE + "confirmation")
+	_ui_move = _one(INTERFACE + "tick_001.ogg")
+	_ui_select = _one(INTERFACE + "select_004.ogg")
 	for i in 8:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
@@ -53,6 +58,13 @@ func _variants(base: String) -> Array[AudioStream]:
 		var path := "%s_%03d.ogg" % [base, i]
 		if ResourceLoader.exists(path):
 			out.append(_no_loop(load(path)))
+	return out
+
+# Load exactly one specific sound file (used for the picked menu/gem sounds).
+func _one(path: String) -> Array[AudioStream]:
+	var out: Array[AudioStream] = []
+	if ResourceLoader.exists(path):
+		out.append(_no_loop(load(path)))
 	return out
 
 # Every audio file under a directory (recursive) — used for the drop-in weird pack.
@@ -86,7 +98,8 @@ func _play(bank: Array[AudioStream], volume_db: float, pitch_var: float) -> void
 	p.play()
 
 func stomp() -> void: _play(_stomp, 0.0, 0.15)
-func gem() -> void: _play(_gem, -3.0, 0.1)
+func artifact() -> void: _play(_artifact, -3.0, 0.1)
+func exotic() -> void: _play(_exotic, -2.0, 0.08)
 func hurt() -> void: _play(_hurt, 1.0, 0.12)
 func footstep() -> void: _play(_step, -9.0, 0.22)
 func jump() -> void: _play(_jump, -5.0, 0.1)

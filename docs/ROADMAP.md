@@ -52,6 +52,44 @@ art. Never make art for a game that isn't fun to play yet.
       a simple state machine (idle/run/jump) via `_update_animation`.
 - [ ] **6. Polish** — sound, particles, collectible sparkle, a goal, a title
       screen.
+- [~] **7. Collectibles & economy rework** —
+      [x] Renamed gems → **Artifacts** (the win-gating pickup) everywhere (group
+          `"artifact"`, `Game.total_artifacts/collected_artifacts`, save keys, HUD).
+      [x] **Exotic Matter** — rare violet pickup (`exotic_matter.tscn`) that heads
+          sometimes drop when defeated (`exotic_drop_chance`, bigger heads likelier).
+          Own counter (`Game.exotic_matter`), saved, does NOT gate the win.
+      [x] Heads **respawn** after `enemy_respawn_delay` (main.gd re-instances them).
+      [x] Day/night reweighted to a **long day / short night** (`day_fraction` 0.75);
+          heads get **more aggressive at night** (detect/lose range + chase speed).
+      [x] **HUD redesign** — bigger portrait, dark backing panel, large outlined
+          color-coded worded labels (Artifacts / Exotic Matter / Lives).
+      Art direction (both pickups): **ancient lost-civilization "natural tech"** —
+      carved weathered stone + glowing gemstone power core + etched runes. Artifact
+      = refined/stable (warm amber-gold glow, matches HUD); Exotic Matter = the raw,
+      unstable version of the same energy (violet glow). Form = a geode: cracked
+      stone orb revealing a glowing gem core.
+      [x] **Meshy: Artifact model** (`artifact.glb`) — carved stone geode; script
+          brightens albedo + adds texture-modulated warm-gold emission + a gold halo
+          light so it glows as a power source while keeping stone detail.
+      [x] **Meshy: Exotic Matter model** (`exotic_matter.glb`) — violet energy shard;
+          uses the baked Meshy look + a violet halo light.
+          (Both auto-fit to `model_size` ≈0.9 m via a runtime AABB measure.)
+      [ ] **Coins** — enemies drop a random handful of coins per kill (currency).
+- [ ] **8. Hero combat re-animation (Meshy)** — regenerate/re-rig the hero with a
+      combat move set: **punch, kick, knockback/hit-react, death, shoot, dance**.
+      Wire into `player.gd`'s animation state machine + actual attack hitboxes.
+- [ ] **9. NPC quest-giver (Meshy)** — user already has a model; needs **idle +
+      conversation animations** applied in Meshy. Standing NPC you talk to; gives
+      the quest to collect the Artifacts. Dialogue = **text for now**, recorded/
+      generated **audio later**. **Artifacts stay hidden until the quest starts.**
+- [ ] **10. Shop & reality-bending weapons** — a vendor NPC where you spend
+      **coins + Exotic Matter** to craft weapons that either have a ridiculous
+      kill or a **reality-bending effect** on the world. Example idea: shoot an
+      area and it turns "HD"/re-skins/warps. (Design + build later — placeholder
+      note so we don't lose it.)
+- [ ] **11. Level 2 & the portal** — finishing the artifact quest opens a
+      **portal**; entering it plays a loading screen / cutscene, then loads a
+      **much bigger Level 2** (to be designed together).
 
 ## Folder layout
 - `scenes/`   — Godot scenes (`.tscn`). `main.tscn` is the whole level for now.

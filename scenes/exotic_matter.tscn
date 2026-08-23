@@ -1,0 +1,20 @@
+[gd_scene load_steps=4 format=3 uid="uid://c0exoticmat01"]
+
+[ext_resource type="Script" path="res://scripts/exotic_matter.gd" id="1_exotic"]
+[ext_resource type="PackedScene" uid="uid://dxibqbfk7hkoa" path="res://assets/models/exotic_matter.glb" id="2_model"]
+
+[sub_resource type="SphereShape3D" id="ExoticShape"]
+radius = 0.8
+
+[node name="ExoticMatter" type="Area3D"]
+script = ExtResource("1_exotic")
+
+[node name="Model" parent="." instance=ExtResource("2_model")]
+
+[node name="Collision" type="CollisionShape3D" parent="."]
+shape = SubResource("ExoticShape")
+
+[node name="Glow" type="OmniLight3D" parent="."]
+light_color = Color(0.7, 0.36, 1, 1)
+light_energy = 1.6
+omni_range = 3.6

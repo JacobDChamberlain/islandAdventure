@@ -1,19 +1,25 @@
 extends Control
-# On-screen display: a live 3D head portrait, a health bar, and a gem counter.
-# It listens to the Game brain's signals and updates the widgets.
+# On-screen display: a live 3D head portrait, a health bar, an artifact counter,
+# and an Exotic Matter counter. It listens to the Game brain's signals and
+# updates the widgets.
 
 @onready var health_bar: ProgressBar = $HealthBar
-@onready var gem_label: Label = $GemCount
+@onready var artifact_label: Label = $ArtifactCount
+@onready var exotic_label: Label = $ExoticCount
 @onready var lives_label: Label = $LivesLabel
 @onready var portrait_rect: TextureRect = $Portrait
 @onready var portrait_viewport: SubViewport = $PortraitViewport
 @onready var damage_flash: ColorRect = $DamageFlash
+@onready var toast_box: Control = $ToastBox
 
 var _last_health: int = 5
 
 # Health bar fill colors (lerped from full -> empty).
 const HEALTH_FULL := Color(0.35, 0.85, 0.4)
 const HEALTH_LOW := Color(0.9, 0.25, 0.2)
+# Pickup-toast colors (match the HUD counters).
+const ARTIFACT_COLOR := Color(1.0, 0.82, 0.15)
+const EXOTIC_COLOR := Color(0.74, 0.42, 1.0)
 
 func _ready() -> void:
 	# Show the mini-viewport's live render inside the circular portrait.
@@ -21,6 +27,9 @@ func _ready() -> void:
 
 	_last_health = Game.health
 	Game.score_changed.connect(_on_score_changed)
+	Game.exotic_changed.connect(_on_exotic_changed)
+	Game.artifact_collected.connect(_on_artifact_collected)
+	Game.exotic_collected.connect(_on_exotic_collected)
 	Game.health_changed.connect(_on_health_changed)
 	Game.lives_changed.connect(_on_lives_changed)
 	damage_flash.color.a = 0.0
@@ -32,12 +41,16 @@ func _flash_damage() -> void:
 	t.tween_property(damage_flash, "color:a", 0.0, 0.45)
 
 func _refresh() -> void:
-	_on_score_changed(Game.score, Game.total_gems)
+	_on_score_changed(Game.score, Game.total_artifacts)
+	_on_exotic_changed(Game.exotic_matter)
 	_on_health_changed(Game.health, Game.max_health)
 	_on_lives_changed(Game.lives, Game.max_lives)
 
 func _on_score_changed(score: int, total: int) -> void:
-	gem_label.text = "%d / %d" % [score, total]
+	artifact_label.text = "Artifacts   %d / %d" % [score, total]
+
+func _on_exotic_changed(count: int) -> void:
+	exotic_label.text = "Exotic Matter   %d" % count
 
 func _on_health_changed(health: int, max_health: int) -> void:
 	if health < _last_health:
@@ -52,4 +65,44 @@ func _on_health_changed(health: int, max_health: int) -> void:
 		box.bg_color = HEALTH_LOW.lerp(HEALTH_FULL, frac)
 
 func _on_lives_changed(lives: int, _max_lives: int) -> void:
-	lives_label.text = "Lives:  %d" % lives
+	lives_label.text = "Lives   %d" % lives
+
+# --- Pickup toasts ------------------------------------------------------------
+
+func _on_artifact_collected(score: int, total: int) -> void:
+	_spawn_toast("+  Artifact   %d / %d" % [score, total], ARTIFACT_COLOR)
+
+func _on_exotic_collected(_count: int) -> void:
+	_spawn_toast("+  Exotic Matter", EXOTIC_COLOR)
+
+# A short-lived on-screen label that fades in, drifts up the screen, then fades
+# out and frees. A soft colored halo (0-offset text shadow) gives it a glow.
+# Several stack when you grab things in quick succession.
+func _spawn_toast(text: String, color: Color) -> void:
+	var l := Label.new()
+	l.text = text
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.add_theme_font_size_override("font_size", 30)
+	l.add_theme_color_override("font_color", color.lerp(Color.WHITE, 0.2))
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	l.add_theme_constant_override("outline_size", 5)
+	# Colored, un-offset shadow with a fat outline = a soft glow around the text.
+	l.add_theme_color_override("font_shadow_color", Color(color.r, color.g, color.b, 0.8))
+	l.add_theme_constant_override("shadow_offset_x", 0)
+	l.add_theme_constant_override("shadow_offset_y", 0)
+	l.add_theme_constant_override("shadow_outline_size", 16)
+	toast_box.add_child(l)
+	# Full screen width so centered text lands at screen center; stack new toasts
+	# a little higher so rapid pickups don't overlap.
+	l.size = Vector2(get_viewport_rect().size.x, 40)
+	var start_y := -float(toast_box.get_child_count() - 1) * 34.0
+	l.position = Vector2(0, start_y)
+	l.modulate.a = 0.0
+	var life := 1.55
+	var t := create_tween()
+	t.set_parallel(true)
+	t.tween_property(l, "position:y", start_y - 120.0, life).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.tween_property(l, "modulate:a", 1.0, 0.12)
+	t.tween_property(l, "modulate:a", 0.0, 0.5).set_delay(life - 0.5)
+	t.chain().tween_callback(l.queue_free)

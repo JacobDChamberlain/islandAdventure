@@ -32,20 +32,26 @@ and does GUI work — the editor is a native app I can't click into.
 ## Architecture
 
 **Autoloads** (globals, by name):
-- `Game` — run state: score, `total_gems`, `collected_gems`, health, lives; signals
-  `score_changed`/`health_changed`/`lives_changed`/`all_gems_collected`/`game_over`.
-  `new_run(total)` resets a run; `collect(name)`, `damage()`, `lose_life()`.
+- `Game` — run state: score, `total_artifacts`, `collected_artifacts`,
+  `exotic_matter`, health, lives, `is_night`; signals `score_changed`/
+  `exotic_changed`/`health_changed`/`lives_changed`/`all_artifacts_collected`/
+  `game_over`. `new_run(total)` resets a run; `collect(name)`, `collect_exotic()`,
+  `damage()`, `lose_life()`. **Artifacts** are the placed collectibles that gate the
+  win; **Exotic Matter** is a rare pickup dropped by defeated heads (its own counter,
+  never gates the win). `is_night` is written by `main.gd` and read by enemies.
 - `Fx` — `poof(pos, color, amount, power)` spawns a one-shot GPUParticles3D.
-- `Sfx` — Kenney CC0 sounds. Player: `stomp/gem/hurt/jump/footstep`. UI: `ui_move/
-  ui_select`, `wire_button(b)`. Enemies grab `random_step()/random_weird()` for
-  their own 3D players. **Swap a sound = change the base name in `sfx.gd`.**
+- `Sfx` — Kenney CC0 sounds. Player: `stomp/artifact/exotic/hurt/jump/footstep`. UI:
+  `ui_move/ui_select`, `wire_button(b)`. Enemies grab `random_step()/random_weird()`
+  for their own 3D players. **Swap a sound = change the base name in `sfx.gd`.**
 - `Settings` — volume/sensitivity/fullscreen, persisted to `user://settings.cfg`;
   F toggles fullscreen (only works in a non-embedded window).
 - `SaveManager` — 3 JSON slots (`user://save_N.json`): player pos/health/score/
-  collected gems. `apply_pending()` (called by main.gd) waits 2 frames then applies.
+  exotic matter/collected artifacts. `apply_pending()` (called by main.gd) waits 2
+  frames then applies.
 
 **Scenes**: `title.tscn` (synthwave shader bg) → `main.tscn` (the level). Reusable
-instances: `collectible.tscn` (gem), `enemy.tscn`, `launch_pad.tscn`,
+instances: `collectible.tscn` (artifact — group `"artifact"`), `exotic_matter.tscn`
+(rare enemy drop — group `"exotic"`), `enemy.tscn`, `launch_pad.tscn`,
 `moving_platform.tscn`, `platform.tscn`. Pause menu + end screen live in `main.tscn`
 on `process_mode = ALWAYS` CanvasLayers so they run while the tree is paused.
 
@@ -56,9 +62,10 @@ and exposes **`height_at(x, z)`** — the source of truth for ground height.
 ## Key patterns / conventions
 
 - **Snap to ground** via `island.height_at(x,z)`, NOT a physics raycast (raycast
-  runs before terrain collision is ready → fall-through). Gems/enemies/pads/
-  platforms all `await get_tree().process_frame` then set `global_position.y`.
-  Gems support `extra_height` (float high, for launch-pad targets) + `snap_to_ground`.
+  runs before terrain collision is ready → fall-through). Artifacts/exotic/enemies/
+  pads/platforms all `await get_tree().process_frame` then set `global_position.y`.
+  Artifacts support `extra_height` (float high, for launch-pad targets) +
+  `snap_to_ground`.
 - **Fitting a rigged model** (`player.gd _fit_aabb`, `enemy.gd _fit_model`): measure
   the **Skeleton3D bone extent**, not `mesh.get_aabb()` — Meshy bakes a ~100× scale
   into the rig, so the mesh AABB is tiny and makes the model gigantic.
@@ -66,9 +73,23 @@ and exposes **`height_at(x, z)`** — the source of truth for ground height.
   frame 0, so clips play in place and movement comes only from code velocity.
 - **Terrain triangle winding must face up** (`island._tri` winds `a,c,b`/`a,d,c`)
   or `is_on_floor` fails and rays pass through.
-- Groups used: `player`, `gem`, `island`.
+- Groups used: `player`, `artifact`, `exotic`, `enemy`, `island`.
 - Enemies are on **collision layer 2**, player only collides with layer 1, so the
   player passes through enemies; the enemy's Detector Area handles stomp vs bump.
+- **Enemy respawn**: `enemy.gd` emits `died()` on stomp; `main.gd` captures each
+  head's placement (`transform` + `model_yaw_offset_deg` + `roam_radius`) at start,
+  and on `died` re-instances `enemy.tscn` at that config after `enemy_respawn_delay`.
+  Heads are root-level children of `Main`, so local `transform` == world — set it
+  (and the export overrides) **before** `add_child`, since `_ready` reads them.
+- **Exotic Matter drops**: `enemy._die()` rolls `exotic_drop_chance` (bigger heads
+  slightly likelier) and spawns `exotic_matter.tscn` under the level, then emits
+  `died` + `queue_free`s. The drop is parented to `get_parent()`, not the dying head.
+- **Day/night** (`main.gd`): a warped time-of-day curve keeps the sun up for
+  `day_fraction` (0.75) of the cycle — long day, short night. `_sun_height()` remaps
+  `_tod` into a half-sine per phase; `Game.is_night` is set when daylight < 0.15.
+- **Night aggro**: enemies scale `detect_range`/`lose_range` by `night_detect_mult`
+  and `chase_speed` by `night_speed_mult` whenever `Game.is_night` (see the
+  `_detect_range()`/`_lose_range()`/`_chase_speed()` helpers in `enemy.gd`).
 - Moving platforms are `AnimatableBody3D` (sync_to_physics carries the player);
   they sit above the **max** terrain height along their path so they never sink.
 
@@ -90,9 +111,11 @@ user's rigged head-bust `assets/models/nightmare.glb`. Raw zips are gitignored.
 
 ## Status
 
-Complete loop: title → play → win (all 8 gems) / lose (3 lives) → replay. Has:
-hero movement (run/double-jump/sprint/roll), 6 AI enemies (wander/chase/attack),
-gems, HUD (live 3D head portrait), particles + full audio, day/night cycle,
-launch pads / moving + static platforms, settings, 3-slot save/load.
+Complete loop: title → play → win (all 8 artifacts) / lose (3 lives) → replay. Has:
+hero movement (run/double-jump/sprint/roll), 6 AI enemies (wander/chase/attack)
+that **respawn** and get **more aggressive at night**, artifacts + rare Exotic
+Matter drops, HUD (live 3D head portrait), particles + full audio, a long-day/
+short-night cycle, launch pads / moving + static platforms, settings, 3-slot
+save/load.
 Next ideas: more props (Meshy), deploy to itch.io (export → web build). See
 `docs/ROADMAP.md`.

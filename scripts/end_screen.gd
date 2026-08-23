@@ -1,10 +1,10 @@
 extends Control
-# Shown on victory (all gems) or game over (out of lives). Pauses the game and
-# offers Play Again / Quit to Title.
+# Shown on victory (all artifacts) or game over (out of lives). Pauses the game
+# and offers Play Again / Quit to Title.
 
 func _ready() -> void:
 	Game.game_over.connect(_on_game_over)
-	Game.all_gems_collected.connect(_on_victory)
+	Game.all_artifacts_collected.connect(_on_victory)
 	$VBox/PlayAgain.pressed.connect(_play_again)
 	$VBox/QuitTitle.pressed.connect(_quit_title)
 	Sfx.wire_button($VBox/PlayAgain)

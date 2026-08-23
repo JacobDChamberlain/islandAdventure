@@ -1,18 +1,7 @@
-[gd_scene load_steps=5 format=3 uid="uid://c0gemcollect01"]
+[gd_scene load_steps=4 format=3 uid="uid://c0gemcollect01"]
 
 [ext_resource type="Script" path="res://scripts/collectible.gd" id="1_gem"]
-
-[sub_resource type="StandardMaterial3D" id="MatGem"]
-albedo_color = Color(1, 0.82, 0.15, 1)
-metallic = 0.6
-roughness = 0.2
-emission_enabled = true
-emission = Color(0.9, 0.65, 0.1, 1)
-emission_energy_multiplier = 0.6
-
-[sub_resource type="SphereMesh" id="GemMesh"]
-radius = 0.4
-height = 0.8
+[ext_resource type="PackedScene" uid="uid://4m4byd8hohb3" path="res://assets/models/artifact.glb" id="2_model"]
 
 [sub_resource type="SphereShape3D" id="GemShape"]
 radius = 0.7
@@ -20,9 +9,12 @@ radius = 0.7
 [node name="Collectible" type="Area3D"]
 script = ExtResource("1_gem")
 
-[node name="Mesh" type="MeshInstance3D" parent="."]
-mesh = SubResource("GemMesh")
-surface_material_override/0 = SubResource("MatGem")
+[node name="Model" parent="." instance=ExtResource("2_model")]
 
 [node name="Collision" type="CollisionShape3D" parent="."]
 shape = SubResource("GemShape")
+
+[node name="Glow" type="OmniLight3D" parent="."]
+light_color = Color(1, 0.78, 0.36, 1)
+light_energy = 2.4
+omni_range = 5.0

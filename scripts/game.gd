@@ -4,27 +4,34 @@ extends Node
 # the HUD can update without every object needing to know about every other one.
 
 signal score_changed(score: int, total: int)
+signal exotic_changed(count: int)
+signal artifact_collected(score: int, total: int)   # fires only on an actual pickup
+signal exotic_collected(count: int)                  # fires only on an actual pickup
 signal health_changed(health: int, max_health: int)
 signal lives_changed(lives: int, max_lives: int)
-signal all_gems_collected()
+signal all_artifacts_collected()
 signal game_over()
 
-var total_gems: int = 0   # how many gems exist in the level
-var score: int = 0        # how many you've picked up
-var collected_gems: Array = []   # node names of collected gems (for saving)
+var total_artifacts: int = 0   # how many artifacts exist in the level
+var score: int = 0             # how many you've picked up
+var collected_artifacts: Array = []   # node names of collected artifacts (for saving)
+var exotic_matter: int = 0     # rare pickup dropped by defeated heads
 var max_health: int = 5
 var health: int = 5
 var max_lives: int = 3
 var lives: int = 3
+var is_night: bool = false      # set by main.gd's day/night cycle; enemies read it
 
-# Called by main.gd when a level loads: sets a fresh run with `total` gems.
+# Called by main.gd when a level loads: sets a fresh run with `total` artifacts.
 func new_run(total: int) -> void:
-	total_gems = total
+	total_artifacts = total
 	score = 0
-	collected_gems = []
+	collected_artifacts = []
+	exotic_matter = 0
 	health = max_health
 	lives = max_lives
-	score_changed.emit(score, total_gems)
+	score_changed.emit(score, total_artifacts)
+	exotic_changed.emit(exotic_matter)
 	health_changed.emit(health, max_health)
 	lives_changed.emit(lives, max_lives)
 
@@ -39,14 +46,21 @@ func lose_life() -> bool:
 	health_changed.emit(health, max_health)
 	return false
 
-# A gem was picked up (records its name so saves know which are gone).
-func collect(gem_name: String) -> void:
+# An artifact was picked up (records its name so saves know which are gone).
+func collect(artifact_name: String) -> void:
 	score += 1
-	if not collected_gems.has(gem_name):
-		collected_gems.append(gem_name)
-	score_changed.emit(score, total_gems)
-	if total_gems > 0 and score >= total_gems:
-		all_gems_collected.emit()
+	if not collected_artifacts.has(artifact_name):
+		collected_artifacts.append(artifact_name)
+	score_changed.emit(score, total_artifacts)
+	artifact_collected.emit(score, total_artifacts)
+	if total_artifacts > 0 and score >= total_artifacts:
+		all_artifacts_collected.emit()
+
+# A blob of Exotic Matter was picked up (dropped by a defeated head).
+func collect_exotic(amount: int = 1) -> void:
+	exotic_matter += amount
+	exotic_changed.emit(exotic_matter)
+	exotic_collected.emit(exotic_matter)
 
 # Returns true if this hit brought the player to 0 health.
 func damage(amount: int = 1) -> bool:

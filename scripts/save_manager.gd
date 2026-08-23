@@ -1,7 +1,7 @@
 extends Node
-# Save/load to 3 JSON slots. Saves the player's position, health, score, and
-# which gems are collected. Enemies reset to spawn on load. A loaded slot is
-# applied by main.gd (apply_pending) a couple frames after the scene loads.
+# Save/load to 3 JSON slots. Saves the player's position, health, score, exotic
+# matter, and which artifacts are collected. Enemies reset to spawn on load. A
+# loaded slot is applied by main.gd (apply_pending) a couple frames after load.
 
 var _pending: Dictionary = {}
 
@@ -15,7 +15,7 @@ func slot_summary(slot: int) -> String:
 	var d := _read(slot)
 	if d.is_empty():
 		return "— empty —"
-	return "Gems %d/%d   HP %d" % [int(d.get("score", 0)), int(d.get("total", 8)), int(d.get("health", 0))]
+	return "Artifacts %d/%d   HP %d" % [int(d.get("score", 0)), int(d.get("total", 8)), int(d.get("health", 0))]
 
 func _read(slot: int) -> Dictionary:
 	if not has_slot(slot):
@@ -35,8 +35,9 @@ func save_to_slot(slot: int) -> void:
 		"pos": [pos.x, pos.y, pos.z],
 		"health": Game.health,
 		"score": Game.score,
-		"total": Game.total_gems,
-		"collected": Game.collected_gems,
+		"total": Game.total_artifacts,
+		"collected": Game.collected_artifacts,
+		"exotic": Game.exotic_matter,
 	}
 	var f := FileAccess.open(_slot_path(slot), FileAccess.WRITE)
 	if f:
@@ -68,9 +69,11 @@ func apply_pending() -> void:
 			player.velocity = Vector3.ZERO
 	Game.score = int(data.get("score", 0))
 	Game.health = int(data.get("health", Game.max_health))
-	Game.collected_gems = data.get("collected", [])
-	for gem in tree.get_nodes_in_group("gem"):
-		if String(gem.name) in Game.collected_gems:
-			gem.queue_free()
-	Game.score_changed.emit(Game.score, Game.total_gems)
+	Game.exotic_matter = int(data.get("exotic", 0))
+	Game.collected_artifacts = data.get("collected", [])
+	for artifact in tree.get_nodes_in_group("artifact"):
+		if String(artifact.name) in Game.collected_artifacts:
+			artifact.queue_free()
+	Game.score_changed.emit(Game.score, Game.total_artifacts)
+	Game.exotic_changed.emit(Game.exotic_matter)
 	Game.health_changed.emit(Game.health, Game.max_health)
