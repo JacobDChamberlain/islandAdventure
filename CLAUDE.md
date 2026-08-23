@@ -42,7 +42,7 @@ and does GUI work — the editor is a native app I can't click into.
   (rare) and **coins** (common) are dropped by defeated heads and never gate the win.
   `is_night` is written by `main.gd` and read by enemies.
 - `Fx` — `poof(pos, color, amount, power)` spawns a one-shot GPUParticles3D.
-- `Sfx` — Kenney CC0 sounds. Player: `stomp/artifact/exotic/coin/hurt/jump/footstep`. UI:
+- `Sfx` — Kenney CC0 sounds. Player: `stomp/hit/artifact/exotic/coin/hurt/jump/footstep`. UI:
   `ui_move/ui_select`, `wire_button(b)`. Enemies grab `random_step()/random_weird()`
   for their own 3D players. **Swap a sound = change the base name in `sfx.gd`.**
 - `Settings` — volume/sensitivity/fullscreen, persisted to `user://settings.cfg`;
@@ -82,7 +82,13 @@ and exposes **`height_at(x, z)`** — the source of truth for ground height.
   `height_at()`), then can't be collected for `arm_delay` seconds — so drops are
   visible before you sweep them up instead of vacuuming instantly under the kill.
 - Enemies are on **collision layer 2**, player only collides with layer 1, so the
-  player passes through enemies; the enemy's Detector Area handles stomp vs bump.
+  player passes through enemies; the enemy's Detector Area handles the stomp.
+- **Hero melee** (`player.gd`): LMB/J punch, RMB/K kick (airborne = flying kick).
+  `AttackHitbox` (Area3D in front of Player, mask 2) is sampled after a per-attack
+  `*_windup`; each hit calls `enemy.hit_by_player(from_pos, knockback, dmg)` →
+  knockback + front/back hit reaction + retaliate; `max_hp` melee hits to kill
+  (stomp still one-shots). Attack clips are one-shots played via `_play_oneshot`
+  (speed + `kick_anim_start` seek); combat/emote clip names are `@export`s.
 - **Enemy respawn**: `enemy.gd` emits `died()` on stomp; `main.gd` captures each
   head's placement (`transform` + `model_yaw_offset_deg` + `roam_radius`) at start,
   and on `died` re-instances `enemy.tscn` at that config after `enemy_respawn_delay`.
@@ -119,7 +125,8 @@ user's rigged head-bust `assets/models/nightmare.glb`. Raw zips are gitignored.
 ## Status
 
 Complete loop: title → play → win (all 8 artifacts) / lose (3 lives) → replay. Has:
-hero movement (run/double-jump/sprint/roll), 6 AI enemies (wander/chase/attack)
+hero movement (run/double-jump/sprint/roll) + **melee combat** (punch/kick/flying
+kick, dances), 6 AI enemies (wander/chase/attack) with HP + knockback
 that **respawn** and get **more aggressive at night**, artifacts + rare Exotic
 Matter + coin drops (arc-pop pickups), pickup toasts, HUD (live 3D head portrait),
 particles + full audio, a long-day/

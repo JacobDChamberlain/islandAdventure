@@ -26,6 +26,19 @@ var _cam_frac: float = 1.0   # 0..1 of the ideal distance, smoothed
 @export var knockback_strength: float = 10.0 # how hard a hit shoves you away
 @export var invuln_time: float = 1.0         # seconds of "can't be hit" after a hit
 
+# --- Melee attacks (punch / kick) ---
+@export var attack_damage: int = 1
+@export var punch_knockback: float = 9.0      # how hard a punch shoves an enemy
+@export var kick_knockback: float = 15.0      # kicks hit harder / knock further
+# Wind-up = delay before the hit lands, tuned to when each clip actually connects.
+@export var punch_windup: float = 0.15
+@export var kick_windup: float = 0.14
+@export var flying_kick_windup: float = 0.16
+@export var attack_cooldown: float = 0.32     # min time between attacks
+@export var punch_anim_speed: float = 2.0       # snappier punches
+@export var kick_anim_speed: float = 1.7        # snappier kick
+@export var kick_anim_start: float = 0.12       # skip this much of the kick's wind-up
+
 # --- Visual model (the imported Meshy hero) ---
 @export var model_target_height: float = 1.9    # how tall the hero should appear (world units)
 @export var model_yaw_offset_deg: float = 180.0 # spin the model if it faces the wrong way
@@ -41,6 +54,16 @@ var _cam_frac: float = 1.0   # 0..1 of the ideal distance, smoothed
 @export var anim_run_fast: String = "RunFast"
 @export var anim_jump: String = "Jump_with_Arms_Open"
 @export var anim_sprint_jump: String = "Run_and_Jump"
+# Combat / emote clips (baked into hero_anim_merged.glb). Empty = the mechanic
+# still works, just without a bespoke animation.
+@export var anim_punch: String = "Punch_Combo_1"
+@export var anim_punch2: String = "Punch_Combo"       # alternated for a combo feel
+@export var anim_kick: String = "High_Kick"            # grounded kick
+@export var anim_flying_kick: String = "Rising_Flying_Kick"  # kick while airborne
+@export var anim_death: String = "Dead"
+@export var anim_hit: String = "Hit_Reaction"          # played when you take a hit
+@export var anim_dance: String = "All_Night_Dance"     # G
+@export var anim_dance2: String = "Breakdance_1990"    # H
 @export var jump_anim_speed: float = 1.6   # play the jump clip faster so it reads
 @export var jump_anim_start: float = 0.25  # skip this many seconds of jump wind-up
 @export var sprint_jump_anim_speed: float = 1.5 # speed of the sprint run-and-jump
@@ -59,10 +82,14 @@ var jumps_left: int = 2
 var _step_timer: float = 0.0
 var _invuln: float = 0.0
 var _spawn_point: Vector3 = Vector3.ZERO
+var _attacking: bool = false
+var _dancing: bool = false
+var _punch_toggle: bool = false   # alternate the two punch clips
 
 @onready var camera_pivot: Node3D = $CameraPivot
 @onready var camera: Camera3D = $CameraPivot/Camera3D
 @onready var model: Node3D = get_node_or_null("Model")
+@onready var attack_hitbox: Area3D = get_node_or_null("AttackHitbox")
 
 func _ready() -> void:
 	jumps_left = max_jumps
@@ -102,7 +129,7 @@ func _setup_animation() -> void:
 		if anim.has_animation(clip):
 			anim.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
 	# One-shot clips that should play through and stop (not loop).
-	for clip in [anim_jump, anim_sprint_jump]:
+	for clip in [anim_jump, anim_sprint_jump, anim_punch, anim_punch2, anim_kick, anim_flying_kick, anim_death, anim_hit]:
 		if anim.has_animation(clip):
 			anim.get_animation(clip).loop_mode = Animation.LOOP_NONE
 	_strip_root_motion()
@@ -212,6 +239,7 @@ func _mesh_aabb() -> AABB:
 	return result
 
 func _try_jump() -> void:
+	_cancel_dance()
 	if jumps_left > 0:
 		velocity.y = jump_velocity
 		jumps_left -= 1
@@ -231,12 +259,88 @@ func launch(strength: float) -> void:
 	jumps_left = max_jumps
 	Sfx.jump()
 
+# Melee attack. `kind` is "punch" or "kick". Kicks in the air become a flying
+# kick; punches are grounded only. Plays the clip, waits a wind-up, then hits
+# every enemy inside the AttackHitbox once.
+func _attack(kind: String) -> void:
+	if _attacking:
+		return
+	var airborne := not is_on_floor()
+	var is_kick := kind == "kick"
+	if not is_kick and airborne:
+		return   # no air-punch; only kicks work airborne
+	_cancel_dance()
+	_attacking = true
+	var flying := is_kick and airborne
+	var kb := punch_knockback
+	var clip := ""
+	var spd := punch_anim_speed
+	var windup := punch_windup
+	var start := 0.0
+	if flying:
+		kb = kick_knockback * 1.3      # flying kick hits hardest
+		clip = anim_flying_kick
+		spd = kick_anim_speed
+		windup = flying_kick_windup
+	elif is_kick:
+		kb = kick_knockback
+		clip = anim_kick
+		spd = kick_anim_speed
+		windup = kick_windup
+		start = kick_anim_start        # skip the slow wind-up frames
+	else:
+		# Alternate the two punch clips for a light combo feel.
+		clip = anim_punch2 if _punch_toggle else anim_punch
+		_punch_toggle = not _punch_toggle
+		windup = punch_windup
+	if clip != "" and anim and anim.has_animation(clip):
+		_play_oneshot(clip, spd, start)
+	await get_tree().create_timer(windup).timeout
+	if not is_inside_tree():
+		return
+	var hit_any := false
+	if attack_hitbox:
+		for b in attack_hitbox.get_overlapping_bodies():
+			if b.has_method("hit_by_player"):
+				b.hit_by_player(global_position, kb, attack_damage)
+				hit_any = true
+	if hit_any:
+		Sfx.hit()
+	await get_tree().create_timer(attack_cooldown).timeout
+	if not is_inside_tree():
+		return
+	_attacking = false
+
+# Toggle a dance emote (only while idle on the ground). Any movement cancels it.
+func _toggle_dance(clip: String) -> void:
+	if _attacking or not is_on_floor():
+		return
+	if _dancing:
+		_cancel_dance()
+		return
+	if clip == "" or anim == null or not anim.has_animation(clip):
+		return
+	_dancing = true
+	anim.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
+	anim.play(clip, 0.15)
+	_current_anim = clip
+	_anim_locked = true
+
+func _cancel_dance() -> void:
+	if _dancing:
+		_dancing = false
+		_anim_locked = false
+		_current_anim = ""
+
 # Called by an enemy when it hits you from the side.
 func take_hit(source_pos: Vector3) -> void:
 	if _invuln > 0.0:
 		return   # still flashing-invincible from the last hit
 	_invuln = invuln_time
 	Sfx.hurt()
+	_cancel_dance()
+	if anim_hit != "" and anim and anim.has_animation(anim_hit):
+		_play_oneshot(anim_hit, 1.3)
 	# Shove away from whatever hit us, plus a little upward pop.
 	var away := global_position - source_pos
 	away.y = 0.0
@@ -250,6 +354,9 @@ func take_hit(source_pos: Vector3) -> void:
 # Lose a life and respawn — unless that was the last life (then Game emits
 # game_over and the end screen takes over, so we just stop).
 func _handle_death() -> void:
+	_cancel_dance()
+	if anim_death != "" and anim and anim.has_animation(anim_death):
+		_play_oneshot(anim_death, 1.0)
 	if Game.lose_life():
 		return
 	global_position = _spawn_point
@@ -267,6 +374,19 @@ func _input(event: InputEvent) -> void:
 	# pause menu, not here.
 	if event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	# While playing (mouse captured): left click punches, right click kicks.
+	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			_attack("punch")
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			_attack("kick")
+	# Keyboard alternatives: J punch, K kick, G dance.
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.physical_keycode:
+			KEY_J: _attack("punch")
+			KEY_K: _attack("kick")
+			KEY_G: _toggle_dance(anim_dance)
+			KEY_H: _toggle_dance(anim_dance2)
 	# Jump on the moment Space is pressed (not while held), so double-jump works.
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE:
 		_try_jump()
@@ -322,6 +442,10 @@ func _physics_process(delta: float) -> void:
 
 	var direction := (transform.basis * input_dir).normalized()
 	var has_input := direction.length() > 0.01
+
+	# Any movement (or leaving the ground) breaks a dance emote.
+	if _dancing and (has_input or not is_on_floor()):
+		_cancel_dance()
 
 	if _rolling:
 		# Committed roll: coast forward and taper off; ignore steering input.

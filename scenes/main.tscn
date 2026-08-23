@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=3 uid="uid://q0o4bbkpnnto"]
+[gd_scene load_steps=23 format=3 uid="uid://q0o4bbkpnnto"]
 
 [ext_resource type="Script" uid="uid://cx1j2tkv7s33g" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" uid="uid://bpsjqrqpvx2nr" path="res://scripts/player.gd" id="2_player"]
@@ -35,6 +35,9 @@ sky = SubResource("Sky")
 ambient_light_source = 3
 tonemap_mode = 2
 ssao_enabled = true
+
+[sub_resource type="BoxShape3D" id="AttackBox"]
+size = Vector3(1.8, 2, 2.6)
 
 [sub_resource type="CapsuleShape3D" id="CapShape"]
 
@@ -104,6 +107,14 @@ air_decel = 20.0
 
 [node name="Collision" type="CollisionShape3D" parent="Player"]
 shape = SubResource("CapShape")
+
+[node name="AttackHitbox" type="Area3D" parent="Player"]
+collision_layer = 0
+collision_mask = 2
+
+[node name="Shape" type="CollisionShape3D" parent="Player/AttackHitbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.3)
+shape = SubResource("AttackBox")
 
 [node name="CameraPivot" type="Node3D" parent="Player"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
@@ -381,7 +392,7 @@ offset_bottom = -10.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 5
 theme_override_font_sizes/font_size = 18
-text = "WASD move  ·  Double-tap W to sprint  ·  Space jump  ·  Stomp enemies  ·  Esc pause"
+text = "WASD move  ·  Dbl-tap W sprint  ·  Space jump  ·  LMB punch  ·  RMB kick (fly-kick midair)  ·  Stomp  ·  G/H dance  ·  Esc pause"
 
 [node name="DamageFlash" type="ColorRect" parent="UI/HUD"]
 layout_mode = 1

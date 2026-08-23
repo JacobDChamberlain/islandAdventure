@@ -17,6 +17,7 @@ extends CharacterBody3D
 @export var attack_range: float = 2.8     # attacks within this
 @export var attack_windup: float = 0.35   # telegraph delay before an attack lands
 @export var gravity: float = 30.0
+@export var max_hp: int = 2                    # melee hits to defeat (stomp is always instant)
 @export var model_height: float = 2.6
 @export var model_yaw_offset_deg: float = 180.0
 @export var night_detect_mult: float = 1.7   # detect/lose range multiplier at night
@@ -63,10 +64,13 @@ var _steps_player: AudioStreamPlayer3D
 var _voice_player: AudioStreamPlayer3D
 var _step_timer: float = 0.0
 var _base_pitch: float = 1.0
+var _hp: int = 2
+var _kb_timer: float = 0.0   # while >0, coast from a knockback and ignore the AI
 
 func _ready() -> void:
 	_rng.randomize()
 	add_to_group("enemy")
+	_hp = max_hp
 	$Detector.body_entered.connect(_on_detector_body_entered)
 	await get_tree().process_frame
 	_island = get_tree().get_first_node_in_group("island")
@@ -184,6 +188,16 @@ func _play(clip: String) -> void:
 # --- Movement / behavior ------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
+	# Knocked back by a player attack: coast + slow, ignore the AI for a moment.
+	if _kb_timer > 0.0:
+		_kb_timer -= delta
+		if not is_on_floor():
+			velocity.y -= gravity * delta
+		velocity.x = move_toward(velocity.x, 0.0, 18.0 * delta)
+		velocity.z = move_toward(velocity.z, 0.0, 18.0 * delta)
+		move_and_slide()
+		return
+
 	if not is_on_floor():
 		velocity.y -= gravity * delta
 	else:
@@ -290,12 +304,33 @@ func _on_detector_body_entered(body: Node3D) -> void:
 	if from_above and falling:
 		body.bounce()
 		_die()
-	elif _state == State.WANDER or _state == State.PAUSE:
-		# Bumped while not aggro'd → flinch (front or back), then carry on.
+	# Running into an enemy no longer flinches it — hit reactions come only from
+	# the player's punches/kicks (see hit_by_player).
+
+# Called by the player's melee attack. Takes damage + knockback; a non-lethal hit
+# flinches and then makes the head retaliate (chase). Lethal hits die (drop loot).
+func hit_by_player(from_pos: Vector3, knockback: float, damage: int = 1) -> void:
+	if _kb_timer > 0.0 and _hp <= 0:
+		return
+	_hp -= damage
+	var away := global_position - from_pos
+	away.y = 0.0
+	if away.length() < 0.01:
+		away = -_heading
+	away = away.normalized()
+	# Heavier heads get shoved less.
+	var mass_factor: float = 1.0 / maxf(1.0, global_transform.basis.get_scale().y)
+	velocity.x = away.x * knockback * mass_factor
+	velocity.z = away.z * knockback * mass_factor
+	velocity.y = 4.5
+	_kb_timer = 0.28
+	if _hp <= 0:
+		_die()
+	else:
 		var fwd := Vector3(velocity.x, 0.0, velocity.z)
 		if fwd.length() < 0.1:
 			fwd = _heading
-		var from_back := (body.global_position - global_position).dot(fwd) < 0.0
+		var from_back := (from_pos - global_position).dot(fwd) < 0.0
 		_enter_hit(from_back)
 
 func _enter_hit(from_back: bool) -> void:

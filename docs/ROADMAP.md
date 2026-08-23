@@ -78,9 +78,18 @@ art. Never make art for a game that isn't fun to play yet.
           more from bigger heads) per kill; each pops out in its own arc, spins/bobs,
           "ching" SFX. Counter in HUD + saved; no toast (too frequent). Currency for
           the future shop.
-- [ ] **8. Hero combat re-animation (Meshy)** — regenerate/re-rig the hero with a
-      combat move set: **punch, kick, knockback/hit-react, death, shoot, dance**.
-      Wire into `player.gd`'s animation state machine + actual attack hitboxes.
+- [~] **8. Hero combat re-animation (Meshy)** — re-exported the hero with a combat
+      set (`hero_anim_merged.glb`, 15 clips).
+      [x] Melee: LMB/J punch (alternates Punch_Combo/Punch_Combo_1), RMB/K High_Kick
+          on the ground, Rising_Flying_Kick in the air; AttackHitbox (front of player,
+          mask 2) hits enemies after a per-attack wind-up; impactPunch hit SFX.
+          Per-attack `*_anim_speed` / `*_windup` / `kick_anim_start` tune the feel.
+      [x] Enemies: `max_hp` (melee hits; stomp still one-shots), `hit_by_player()`
+          applies knockback (mass-scaled) + front/back Hit reaction + retaliation.
+          Running into an enemy no longer flinches it — reactions are attack-only.
+      [x] Player: Hit_Reaction on taking a hit, Dead on death, G/H dance emotes
+          (All_Night_Dance / Breakdance_1990), cancelled by moving.
+      [ ] Shoot — no shoot clip in this export yet; add projectile + wire when ready.
 - [ ] **9. NPC quest-giver (Meshy)** — user already has a model; needs **idle +
       conversation animations** applied in Meshy. Standing NPC you talk to; gives
       the quest to collect the Artifacts. Dialogue = **text for now**, recorded/

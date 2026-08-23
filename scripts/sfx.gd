@@ -1,7 +1,7 @@
 extends Node
 # Global sound helper. Loads sound variants once and plays a random one (with a
 # little pitch variation) through a pool of players so sounds can overlap.
-# Player SFX: Sfx.stomp(), Sfx.artifact(), Sfx.exotic(), Sfx.coin(), Sfx.hurt(), Sfx.jump(), Sfx.footstep().
+# Player SFX: Sfx.stomp(), Sfx.hit(), Sfx.artifact(), Sfx.exotic(), Sfx.coin(), Sfx.hurt(), Sfx.jump(), Sfx.footstep().
 # Enemies grab streams directly via random_step()/random_weird() to play them
 # from their own positional (3D) audio players.
 
@@ -13,6 +13,7 @@ const SCIFI := "res://assets/audio/kenney_sci-fi-sounds/Audio/"
 const WEIRD_BASES := ["forceField", "laserRetro", "laserSmall", "slime", "impactMetal"]
 
 var _stomp: Array[AudioStream] = []
+var _hit: Array[AudioStream] = []
 var _artifact: Array[AudioStream] = []
 var _exotic: Array[AudioStream] = []
 var _coin: Array[AudioStream] = []
@@ -28,6 +29,7 @@ var _next: int = 0
 
 func _ready() -> void:
 	_stomp = _variants(IMPACT + "impactSoft_heavy")
+	_hit = _variants(IMPACT + "impactPunch_heavy")
 	_hurt = _variants(IMPACT + "impactWood_heavy")
 	_artifact = _one(INTERFACE + "select_003.ogg")
 	# Exotic Matter gets a distinct, sci-fi "special" chime.
@@ -101,6 +103,7 @@ func _play(bank: Array[AudioStream], volume_db: float, pitch_var: float) -> void
 	p.play()
 
 func stomp() -> void: _play(_stomp, 0.0, 0.15)
+func hit() -> void: _play(_hit, 1.0, 0.18)
 func artifact() -> void: _play(_artifact, -3.0, 0.1)
 func exotic() -> void: _play(_exotic, -2.0, 0.08)
 func coin() -> void: _play(_coin, -6.0, 0.18)
