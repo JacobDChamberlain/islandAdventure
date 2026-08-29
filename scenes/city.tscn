@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=3 uid="uid://q0o4bbkpnnto"]
+[gd_scene load_steps=24 format=3 uid="uid://c0city000001"]
 
 [ext_resource type="Script" uid="uid://cx1j2tkv7s33g" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" uid="uid://bpsjqrqpvx2nr" path="res://scripts/player.gd" id="2_player"]
@@ -8,13 +8,12 @@
 [ext_resource type="PackedScene" uid="uid://bmg311s4voeki" path="res://assets/models/hero_anim_merged.glb" id="6_hero"]
 [ext_resource type="Script" uid="uid://dnmnqgoj52ip5" path="res://scripts/head_portrait.gd" id="7_headportrait"]
 [ext_resource type="Shader" uid="uid://d0su8br5w0hx8" path="res://assets/materials/circle_portrait.gdshader" id="8_circle"]
-[ext_resource type="Script" uid="uid://dbheolt2u5fhj" path="res://scripts/island.gd" id="9_island"]
+[ext_resource type="Script" path="res://scripts/city.gd" id="9_city"]
 [ext_resource type="Script" path="res://scripts/pause_menu.gd" id="10_pause"]
 [ext_resource type="Script" path="res://scripts/end_screen.gd" id="11_end"]
 [ext_resource type="PackedScene" path="res://scenes/launch_pad.tscn" id="12_pad"]
 [ext_resource type="PackedScene" path="res://scenes/moving_platform.tscn" id="13_mplat"]
 [ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="14_plat"]
-[ext_resource type="PackedScene" path="res://scenes/street.tscn" id="15_street"]
 [ext_resource type="PackedScene" uid="uid://c0itemicon01" path="res://scenes/item_icon.tscn" id="16_icon"]
 [ext_resource type="PackedScene" uid="uid://4m4byd8hohb3" path="res://assets/models/artifact.glb" id="17_artglb"]
 [ext_resource type="PackedScene" uid="uid://dxibqbfk7hkoa" path="res://assets/models/exotic_matter.glb" id="18_exoglb"]
@@ -93,11 +92,11 @@ environment = SubResource("Env")
 [node name="Sun" type="DirectionalLight3D" parent="."]
 shadow_enabled = true
 
-[node name="Island" type="Node3D" parent="."]
-script = ExtResource("9_island")
+[node name="City" type="Node3D" parent="."]
+script = ExtResource("9_city")
 
 [node name="Player" type="CharacterBody3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 45, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, 18)
 script = ExtResource("2_player")
 speed = 13.0
 jump_velocity = 19.0
@@ -125,116 +124,108 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 5)
 
 [node name="Artifact1" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 30, 20)
-extra_height = 11.0
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 56, 20, 56)
 
 [node name="Artifact2" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40, 30, 30)
-extra_height = 11.0
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -56, 20, 112)
 
 [node name="Artifact3" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 30, -50)
-extra_height = 11.0
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 112, 20, -56)
 
 [node name="Artifact4" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24, 30, -32)
-extra_height = 10.0
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -112, 20, -112)
 
 [node name="Artifact5" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55, 30, -10)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, 168)
 
 [node name="Artifact6" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -58, 30, 25)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 168, 20, 0)
 
 [node name="Artifact7" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 30, 68)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -168, 20, 168)
 
 [node name="Artifact8" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48, 30, 48)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 112, 20, 112)
 
 [node name="Elder" parent="." instance=ExtResource("20_npc")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 30, 4)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 20, -8)
 
 [node name="Enemy1" parent="." instance=ExtResource("4_enemy")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26, 30, 12)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 56, 20, 0)
 model_yaw_offset_deg = 0.0
 
 [node name="Enemy2" parent="." instance=ExtResource("4_enemy")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38, 30, -18)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -56, 20, 56)
 model_yaw_offset_deg = 0.0
 
 [node name="Enemy3" parent="." instance=ExtResource("4_enemy")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55, 30, 30)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, -56)
 model_yaw_offset_deg = 0.0
 
 [node name="Enemy4" parent="." instance=ExtResource("4_enemy")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -52, 30, 40)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 112, 20, 56)
 model_yaw_offset_deg = 0.0
 
 [node name="Enemy5" parent="." instance=ExtResource("4_enemy")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 30, -46)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -112, 20, -56)
 model_yaw_offset_deg = 0.0
 
 [node name="Enemy6_Giant" parent="." instance=ExtResource("4_enemy")]
-transform = Transform3D(3.8, 0, 0, 0, 3.8, 0, 0, 0, 3.8, 0, 40, 38)
+transform = Transform3D(3.8, 0, 0, 0, 3.8, 0, 0, 0, 3.8, 0, 20, 168)
 model_yaw_offset_deg = 0.0
 roam_radius = 50.0
 
 [node name="LaunchPad1" parent="." instance=ExtResource("12_pad")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 5, 20)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 56, 5, -56)
 
 [node name="LaunchPad2" parent="." instance=ExtResource("12_pad")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40, 5, 30)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -112, 5, 112)
 
 [node name="LaunchPad3" parent="." instance=ExtResource("12_pad")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 5, -50)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 168, 5, 56)
 
 [node name="Platform1" parent="." instance=ExtResource("14_plat")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25, 10, -20)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48, 10, 0)
 base_offset = 2.0
 
 [node name="Platform2" parent="." instance=ExtResource("14_plat")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -27, 10, -24)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52, 10, 0)
 base_offset = 4.0
 
 [node name="Platform3" parent="." instance=ExtResource("14_plat")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24, 10, -27)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48, 10, 4)
 base_offset = 6.0
 
 [node name="Platform4" parent="." instance=ExtResource("14_plat")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -27, 10, -30)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52, 10, 4)
 base_offset = 8.0
 
 [node name="Platform5" parent="." instance=ExtResource("14_plat")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24, 10, -32)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48, 10, 8)
 base_offset = 10.0
 
 [node name="MovingPlatform1" parent="." instance=ExtResource("13_mplat")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 82, 10, 22)
-travel = Vector3(0, 10, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10, 56)
+travel = Vector3(0, 12, 0)
 period = 5.0
 base_offset = 1.5
 
 [node name="MovingPlatform2" parent="." instance=ExtResource("13_mplat")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -46, 10, 8)
-travel = Vector3(0, 8, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 112, 10, 0)
+travel = Vector3(0, 10, 0)
 period = 4.0
 base_offset = 1.5
 
 [node name="MovingPlatform3" parent="." instance=ExtResource("13_mplat")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 10, 66)
-travel = Vector3(18, 0, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -56, 10, -56)
+travel = Vector3(20, 0, 0)
 period = 6.0
 base_offset = 2.5
 
-[node name="Street" parent="." instance=ExtResource("15_street")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 30, -52)
-y_offset = -2.5
-
-[node name="PortalToCity" parent="." instance=ExtResource("21_portal")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 0, 10)
-target_scene = "res://scenes/city.tscn"
-label_text = "CITY"
+[node name="PortalToIsland" parent="." instance=ExtResource("21_portal")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16, 0, 14)
+target_scene = "res://scenes/main.tscn"
+label_text = "ISLAND"
 
 [node name="UI" type="CanvasLayer" parent="."]
 
