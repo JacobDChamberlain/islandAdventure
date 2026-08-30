@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=3 uid="uid://c0city000001"]
+[gd_scene load_steps=26 format=3 uid="uid://c0city000001"]
 
 [ext_resource type="Script" uid="uid://cx1j2tkv7s33g" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" uid="uid://bpsjqrqpvx2nr" path="res://scripts/player.gd" id="2_player"]
@@ -21,6 +21,7 @@
 [ext_resource type="PackedScene" uid="uid://c0npc000001" path="res://scenes/npc.tscn" id="20_npc"]
 [ext_resource type="PackedScene" uid="uid://c0portal0001" path="res://scenes/portal.tscn" id="21_portal"]
 [ext_resource type="PackedScene" uid="uid://c0vehicle0001" path="res://scenes/vehicle.tscn" id="22_vehicle"]
+[ext_resource type="AudioStream" uid="uid://bfhfpee3u2v6w" path="res://assets/audio/Existense Is Punishment.mp3" id="23_music"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.32, 0.58, 0.9, 1)
@@ -86,6 +87,12 @@ content_margin_bottom = 12.0
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
+
+[node name="Music" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("23_music")
+volume_db = -5.0
+autoplay = true
+bus = &"Music"
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Env")
@@ -543,6 +550,21 @@ min_value = 0.0
 max_value = 1.0
 step = 0.05
 value = 0.8
+
+[node name="MusicRow" type="HBoxContainer" parent="PauseLayer/PauseMenu/SettingsPanel"]
+theme_override_constants/separation = 16
+
+[node name="Label" type="Label" parent="PauseLayer/PauseMenu/SettingsPanel/MusicRow"]
+custom_minimum_size = Vector2(200, 0)
+text = "Music Volume"
+
+[node name="MusicSlider" type="HSlider" parent="PauseLayer/PauseMenu/SettingsPanel/MusicRow"]
+custom_minimum_size = Vector2(180, 0)
+size_flags_vertical = 1
+min_value = 0.0
+max_value = 1.0
+step = 0.05
+value = 0.7
 
 [node name="SensRow" type="HBoxContainer" parent="PauseLayer/PauseMenu/SettingsPanel"]
 theme_override_constants/separation = 16

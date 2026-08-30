@@ -6,6 +6,7 @@ extends Control
 @onready var _settings: VBoxContainer = $SettingsPanel
 @onready var _slots: VBoxContainer = $SlotsPanel
 @onready var _vol: HSlider = $SettingsPanel/VolumeRow/VolumeSlider
+@onready var _music: HSlider = $SettingsPanel/MusicRow/MusicSlider
 @onready var _sens: HSlider = $SettingsPanel/SensRow/SensSlider
 @onready var _full: CheckButton = $SettingsPanel/FullRow/FullCheck
 @onready var _slots_title: Label = $SlotsPanel/SlotsTitle
@@ -28,6 +29,7 @@ func _ready() -> void:
 	for i in 3:
 		_slot_btns[i].pressed.connect(_on_slot.bind(i + 1))
 	_vol.value_changed.connect(func(v): Settings.set_volume(v))
+	_music.value_changed.connect(func(v): Settings.set_music_volume(v))
 	_sens.value_changed.connect(func(v): Settings.set_sensitivity(v))
 	_full.toggled.connect(func(on): Settings.set_fullscreen(on))
 	hide()
@@ -63,6 +65,7 @@ func _show_main() -> void:
 
 func _open_settings() -> void:
 	_vol.value = Settings.volume
+	_music.value = Settings.music_volume
 	_sens.value = Settings.sensitivity
 	_full.button_pressed = Settings.fullscreen
 	_main.hide()

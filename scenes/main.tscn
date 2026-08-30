@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=3 uid="uid://q0o4bbkpnnto"]
+[gd_scene load_steps=25 format=3 uid="uid://q0o4bbkpnnto"]
 
 [ext_resource type="Script" uid="uid://cx1j2tkv7s33g" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" uid="uid://bpsjqrqpvx2nr" path="res://scripts/player.gd" id="2_player"]
@@ -21,6 +21,7 @@
 [ext_resource type="PackedScene" uid="uid://c0coinmesh01" path="res://scenes/coin_mesh.tscn" id="19_coinmesh"]
 [ext_resource type="PackedScene" uid="uid://c0npc000001" path="res://scenes/npc.tscn" id="20_npc"]
 [ext_resource type="PackedScene" uid="uid://c0portal0001" path="res://scenes/portal.tscn" id="21_portal"]
+[ext_resource type="AudioStream" uid="uid://b0n4xxtgkg0uo" path="res://assets/audio/Nightlife.mp3" id="22_music"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.32, 0.58, 0.9, 1)
@@ -86,6 +87,12 @@ content_margin_bottom = 12.0
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
+
+[node name="Music" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("22_music")
+volume_db = -5.0
+autoplay = true
+bus = &"Music"
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Env")
@@ -521,6 +528,21 @@ min_value = 0.0
 max_value = 1.0
 step = 0.05
 value = 0.8
+
+[node name="MusicRow" type="HBoxContainer" parent="PauseLayer/PauseMenu/SettingsPanel"]
+theme_override_constants/separation = 16
+
+[node name="Label" type="Label" parent="PauseLayer/PauseMenu/SettingsPanel/MusicRow"]
+custom_minimum_size = Vector2(200, 0)
+text = "Music Volume"
+
+[node name="MusicSlider" type="HSlider" parent="PauseLayer/PauseMenu/SettingsPanel/MusicRow"]
+custom_minimum_size = Vector2(180, 0)
+size_flags_vertical = 1
+min_value = 0.0
+max_value = 1.0
+step = 0.05
+value = 0.7
 
 [node name="SensRow" type="HBoxContainer" parent="PauseLayer/PauseMenu/SettingsPanel"]
 theme_override_constants/separation = 16
