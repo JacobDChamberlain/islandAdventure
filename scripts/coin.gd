@@ -46,7 +46,7 @@ func _process(delta: float) -> void:
 		_base_y = position.y
 
 func _on_body_entered(body: Node3D) -> void:
-	if _armed and body.is_in_group("player"):
+	if _armed and (body.is_in_group("player") or (body.is_in_group("vehicle") and Game.driving)):
 		Fx.poof(global_position, Color(1.0, 0.85, 0.2), 8, 0.5)
 		Sfx.coin()
 		Game.collect_coin()

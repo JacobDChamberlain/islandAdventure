@@ -1,5 +1,5 @@
 extends CanvasLayer
-# Dev-only debug overlay (autoload `DebugMenu`). Press F3 in a level to toggle it.
+# Dev-only debug overlay (autoload `DebugMenu`). Press P in a level to toggle it.
 # Lets you fast-forward the quest — set how many artifacts you've "collected",
 # or complete the quest outright (which opens the island portal / wins the city)
 # — and top up resources, so you can test late-game states without grinding.
@@ -19,6 +19,8 @@ func _ready() -> void:
 	$Panel/Margin/VBox/ResRow/Exotic.pressed.connect(func(): Game.collect_exotic(1); _refresh())
 	$Panel/Margin/VBox/ResRow/Life.pressed.connect(_add_life)
 	$Panel/Margin/VBox/ResRow/Heal.pressed.connect(func(): Game.revive(); _refresh())
+	$Panel/Margin/VBox/GoRow/GoCity.pressed.connect(func(): _goto("res://scenes/city.tscn"))
+	$Panel/Margin/VBox/GoRow/GoIsland.pressed.connect(func(): _goto("res://scenes/main.tscn"))
 	$Panel/Margin/VBox/Reset.pressed.connect(_reset_run)
 
 func _in_level() -> bool:
@@ -26,7 +28,7 @@ func _in_level() -> bool:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo \
-			and event.physical_keycode == KEY_F3:
+			and event.physical_keycode == KEY_P:
 		_toggle()
 		get_viewport().set_input_as_handled()
 
@@ -79,3 +81,12 @@ func _add_life() -> void:
 func _reset_run() -> void:
 	Game.new_run(Game.total_artifacts)
 	_refresh()
+
+# Jump straight to a level (skips talking to the Elder + walking to the portal).
+func _goto(scene_path: String) -> void:
+	_open = false
+	_panel.visible = false
+	get_tree().paused = false
+	Game.cinematic = false
+	Game.driving = false
+	get_tree().change_scene_to_file(scene_path)

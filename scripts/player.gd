@@ -102,6 +102,11 @@ var _grappling: bool = false
 var _grapple_point: Vector3 = Vector3.ZERO
 var _grapple_target: Node3D = null   # set when hooked onto a (moving) kaiju
 var _grapple_time: float = 0.0
+
+# --- Vehicle ---
+var _driving: bool = false
+var _saved_layer: int = 1
+var _saved_mask: int = 1
 var _rope: MeshInstance3D
 var _reticle: Label
 
@@ -114,6 +119,8 @@ func _ready() -> void:
 	jumps_left = max_jumps
 	_spawn_point = global_position
 	add_to_group("player")   # so gems and enemies can recognize us
+	_saved_layer = collision_layer
+	_saved_mask = collision_mask
 	# Treat steep hillsides as walkable floor (island has slopes to climb), and
 	# stick to the ground over bumps instead of launching off every rise.
 	floor_max_angle = deg_to_rad(55.0)
@@ -511,8 +518,8 @@ func _cancel_dance() -> void:
 
 # Called by an enemy when it hits you from the side.
 func take_hit(source_pos: Vector3) -> void:
-	if _invuln > 0.0:
-		return   # still flashing-invincible from the last hit
+	if _invuln > 0.0 or _driving:
+		return   # invincible right after a hit, or safe inside the car
 	_invuln = invuln_time
 	Sfx.hurt()
 	_cancel_dance()
@@ -540,9 +547,35 @@ func _handle_death() -> void:
 	velocity = Vector3.ZERO
 	_invuln = invuln_time
 
+# --- Vehicle: hide + disable the hero while it drives; the vehicle drives the
+#     camera. The vehicle calls these when you press E to get in / out.
+
+func board_vehicle() -> void:
+	_driving = true
+	velocity = Vector3.ZERO
+	visible = false
+	set_physics_process(false)
+	collision_layer = 0          # so the moving car can't hit the parked hero
+	collision_mask = 0
+	if _grappling:
+		_end_grapple(false)
+	if _reticle:
+		_reticle.visible = false
+
+func unboard_vehicle(world_pos: Vector3) -> void:
+	global_position = world_pos
+	velocity = Vector3.ZERO
+	visible = true
+	collision_layer = _saved_layer
+	collision_mask = _saved_mask
+	set_physics_process(true)
+	_driving = false
+	if camera:
+		camera.current = true
+
 func _input(event: InputEvent) -> void:
-	# Frozen during a scripted moment (dialogue box or the Elder's finale).
-	if Dialogue.active or Game.cinematic:
+	# Frozen during a scripted moment (dialogue box, the Elder's finale, driving).
+	if Dialogue.active or Game.cinematic or _driving:
 		return
 	# Mouse look: horizontal turns the whole body, vertical tilts only the camera.
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:

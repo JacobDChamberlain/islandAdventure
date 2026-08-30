@@ -36,6 +36,7 @@ var _in_finale: bool = false
 
 func _ready() -> void:
 	add_to_group("npc")
+	_add_body_collision()
 	$TalkZone.body_entered.connect(_on_body_entered)
 	$TalkZone.body_exited.connect(_on_body_exited)
 	Dialogue.finished.connect(_on_dialogue_finished)
@@ -43,6 +44,18 @@ func _ready() -> void:
 	await get_tree().process_frame
 	_snap_to_ground()
 	_setup_model()
+
+# A solid body so the player/car can't walk or drive straight through the Elder.
+func _add_body_collision() -> void:
+	var body := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	var shape := CapsuleShape3D.new()
+	shape.radius = 0.5
+	shape.height = maxf(model_height, 1.2)
+	cs.shape = shape
+	cs.position.y = model_height * 0.5
+	body.add_child(cs)
+	add_child(body)
 
 func _snap_to_ground() -> void:
 	var island := get_tree().get_first_node_in_group("island")

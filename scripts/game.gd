@@ -26,6 +26,7 @@ var lives: int = 3
 var is_night: bool = false      # set by main.gd's day/night cycle; enemies read it
 var quest_active: bool = false  # artifacts stay hidden until the Elder starts the hunt
 var cinematic: bool = false     # true during a scripted moment (dialogue/finale): freeze the player
+var driving: bool = false        # true while the player is driving the vehicle
 
 # Called by main.gd when a level loads: sets a fresh run with `total` artifacts.
 func new_run(total: int) -> void:
@@ -35,6 +36,7 @@ func new_run(total: int) -> void:
 	exotic_matter = 0
 	coins = 0
 	quest_active = false
+	driving = false
 	health = max_health
 	lives = max_lives
 	score_changed.emit(score, total_artifacts)

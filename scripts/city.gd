@@ -13,13 +13,17 @@ extends Node3D
 @export var block_size: float = 44.0     # walkable block width between roads
 @export var road_width: float = 12.0     # street width
 @export var base_height: float = 0.6     # nominal ground height
-@export var roll_amp: float = 1.3        # gentle undulation so it isn't a dead-flat plane
+@export var roll_amp: float = 0.0        # flat streets (0 = dead flat) — best for driving; curbs can come later as visual detail
 @export var plaza_radius: float = 34.0   # keep the center clear (spawn / NPC / portal home)
 @export var park_chance: float = 0.16    # fraction of blocks left as green parks
 @export var floor_height: float = 3.2    # meters per building "floor"
 @export var min_floors: int = 2
 @export var max_floors: int = 12
 @export var noise_seed: int = 2077
+@export var add_curbs: bool = true       # low car-only ramp curbs at road/sidewalk edges
+@export var curb_height: float = 0.15    # how tall the curb bump is
+@export var curb_base: float = 1.6       # ramp width (wider = gentler slope, easier to mount)
+const CURB_LAYER := 5                     # car masks this; the player ignores it (steps over freely)
 
 var _ground := FastNoiseLite.new()
 
@@ -33,6 +37,8 @@ func _ready() -> void:
 	_ground.noise_type = FastNoiseLite.TYPE_SIMPLEX
 	_build_ground()
 	_build_city()
+	if add_curbs:
+		_build_curbs()
 
 # World height at a given x/z — the source of truth, same signature as the island.
 # The city is intentionally flat-ish (walkable everywhere, no water).
@@ -214,6 +220,62 @@ func _build_city() -> void:
 		_commit_multimesh(unit_box, band["xf"], band["color"])
 	_commit_multimesh(tree, tree_xf, Color.WHITE, false)  # trees carry their own vertex colors
 
+# Curbs ringing each block edge (= the road edges). They're shallow RAMP/speed-bump
+# prisms (triangular cross-section), car-only collision, so even a low-riding car
+# rolls up and over them from a dead stop instead of ramming a vertical wall.
+func _build_curbs() -> void:
+	var half := block_size * 0.5
+	var n := int(extent / _pitch())
+	var rim := extent - block_size
+	# Shared prism mesh + convex shape (base along X, ridge along Z, length = block).
+	var prism := PrismMesh.new()
+	prism.size = Vector3(curb_base, curb_height, block_size)
+	var shape := _prism_shape(curb_base, curb_height, block_size)
+	# Rotating 90° about Y turns an X-running curb into a Z-running one.
+	var rot_z := Transform3D(Basis(Vector3.UP, deg_to_rad(90.0)), Vector3.ZERO)
+	var xf: Array[Transform3D] = []
+	for ix in range(-n, n + 1):
+		for iz in range(-n, n + 1):
+			var cx := _block_center(ix)
+			var cz := _block_center(iz)
+			if absf(cx) > rim or absf(cz) > rim:
+				continue
+			if Vector2(cx, cz).length() < plaza_radius:
+				continue
+			# East/West edges run along Z (default prism orientation).
+			_curb_prism(cx + half, cz, false, shape, rot_z, xf)
+			_curb_prism(cx - half, cz, false, shape, rot_z, xf)
+			# North/South edges run along X (rotate the prism 90°).
+			_curb_prism(cx, cz + half, true, shape, rot_z, xf)
+			_curb_prism(cx, cz - half, true, shape, rot_z, xf)
+	_commit_multimesh(prism, xf, Color(0.72, 0.72, 0.74))
+
+# Convex hull for a symmetric triangular prism, base on the ground, apex centered.
+func _prism_shape(w: float, h: float, d: float) -> ConvexPolygonShape3D:
+	var hw := w * 0.5
+	var hh := h * 0.5
+	var hd := d * 0.5
+	var s := ConvexPolygonShape3D.new()
+	s.points = PackedVector3Array([
+		Vector3(-hw, -hh, -hd), Vector3(hw, -hh, -hd), Vector3(0, hh, -hd),
+		Vector3(-hw, -hh, hd), Vector3(hw, -hh, hd), Vector3(0, hh, hd),
+	])
+	return s
+
+func _curb_prism(px: float, pz: float, along_x: bool, shape: ConvexPolygonShape3D,
+		rot_z: Transform3D, out: Array[Transform3D]) -> void:
+	var basis := rot_z.basis if along_x else Basis()
+	var pos := Vector3(px, height_at(px, pz) + curb_height * 0.5, pz)
+	var body := StaticBody3D.new()
+	body.collision_layer = 1 << (CURB_LAYER - 1)   # layer 5 (value 16) — car-only
+	body.collision_mask = 0
+	var cs := CollisionShape3D.new()
+	cs.shape = shape
+	body.add_child(cs)
+	body.transform = Transform3D(basis, pos)
+	add_child(body)
+	out.append(Transform3D(basis, pos))
+
 func _scatter_park_trees(ix: int, iz: int, cx: float, cz: float, out: Array[Transform3D]) -> void:
 	var half := block_size * 0.5 - 3.0
 	for k in 5:
@@ -224,6 +286,20 @@ func _scatter_park_trees(ix: int, iz: int, cx: float, cz: float, out: Array[Tran
 		var s := lerpf(0.9, 1.7, _hash01(ix + k, iz - k, 27))
 		var b := Basis(Vector3.UP, _hash01(k, ix + iz, 29) * TAU).scaled(Vector3(s, s, s))
 		out.append(Transform3D(b, Vector3(px, height_at(px, pz), pz)))
+		_add_trunk_collision(px, pz, s)
+
+# A thin static collider on each tree trunk so the car (and player) can't drive
+# straight through — bumps/stops on contact instead.
+func _add_trunk_collision(px: float, pz: float, s: float) -> void:
+	var body := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	var shape := CylinderShape3D.new()
+	shape.radius = 0.45 * s
+	shape.height = 4.5 * s
+	cs.shape = shape
+	body.add_child(cs)
+	body.position = Vector3(px, height_at(px, pz) + 2.0 * s, pz)
+	add_child(body)
 
 func _commit_multimesh(mesh: Mesh, xforms: Array[Transform3D], color: Color, colorize: bool = true) -> void:
 	if xforms.is_empty():

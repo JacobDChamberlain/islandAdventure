@@ -116,7 +116,7 @@ func _process(delta: float) -> void:
 	position.y = _base_y + sin(_time * bob_speed) * bob_height
 
 func _on_body_entered(body: Node3D) -> void:
-	if _active and body.is_in_group("player"):
+	if _active and (body.is_in_group("player") or (body.is_in_group("vehicle") and Game.driving)):
 		Fx.poof(global_position, Color(1.0, 0.82, 0.2), 16, 0.8)
 		Sfx.artifact()
 		Game.collect(name)

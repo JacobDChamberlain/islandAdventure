@@ -1,0 +1,165 @@
+[gd_scene load_steps=12 format=3 uid="uid://c0vehicle0001"]
+
+[ext_resource type="Script" path="res://scripts/vehicle.gd" id="1_veh"]
+
+[sub_resource type="BoxShape3D" id="Chassis"]
+size = Vector3(1.7, 0.6, 3.6)
+
+[sub_resource type="BoxMesh" id="BodyMesh"]
+size = Vector3(1.8, 0.7, 4.0)
+
+[sub_resource type="StandardMaterial3D" id="BodyMat"]
+albedo_color = Color(0.85, 0.25, 0.16, 1)
+roughness = 0.6
+metallic = 0.2
+
+[sub_resource type="BoxMesh" id="CabinMesh"]
+size = Vector3(1.5, 0.6, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="CabinMat"]
+albedo_color = Color(0.12, 0.14, 0.18, 1)
+roughness = 0.3
+metallic = 0.3
+
+[sub_resource type="CylinderMesh" id="WheelMesh"]
+top_radius = 0.4
+bottom_radius = 0.4
+height = 0.3
+radial_segments = 12
+
+[sub_resource type="StandardMaterial3D" id="WheelMat"]
+albedo_color = Color(0.08, 0.08, 0.09, 1)
+roughness = 0.9
+
+[sub_resource type="CylinderShape3D" id="Zone"]
+radius = 3.6
+height = 3.0
+
+[sub_resource type="BoxShape3D" id="RamShape"]
+size = Vector3(2.2, 1.4, 4.4)
+
+[sub_resource type="StandardMaterial3D" id="PromptBg"]
+transparency = 1
+albedo_color = Color(0, 0, 0, 0)
+
+[node name="Vehicle" type="VehicleBody3D"]
+mass = 260.0
+center_of_mass_mode = 1
+center_of_mass = Vector3(0, -0.5, 0)
+gravity_scale = 3.0
+angular_damp = 0.8
+collision_layer = 1
+collision_mask = 17
+script = ExtResource("1_veh")
+
+[node name="Chassis" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+shape = SubResource("Chassis")
+
+[node name="Body" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+mesh = SubResource("BodyMesh")
+surface_material_override/0 = SubResource("BodyMat")
+
+[node name="Cabin" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, -0.3)
+mesh = SubResource("CabinMesh")
+surface_material_override/0 = SubResource("CabinMat")
+
+[node name="WheelFL" type="VehicleWheel3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.95, -0.25, 1.35)
+use_as_traction = true
+use_as_steering = true
+wheel_radius = 0.4
+wheel_rest_length = 0.3
+wheel_friction_slip = 9.0
+suspension_travel = 0.2
+suspension_stiffness = 24.0
+suspension_max_force = 6000.0
+damping_compression = 3.5
+damping_relaxation = 4.5
+
+[node name="Mesh" type="MeshInstance3D" parent="WheelFL"]
+transform = Transform3D(0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("WheelMesh")
+surface_material_override/0 = SubResource("WheelMat")
+
+[node name="WheelFR" type="VehicleWheel3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.95, -0.25, 1.35)
+use_as_traction = true
+use_as_steering = true
+wheel_radius = 0.4
+wheel_rest_length = 0.3
+wheel_friction_slip = 9.0
+suspension_travel = 0.2
+suspension_stiffness = 24.0
+suspension_max_force = 6000.0
+damping_compression = 3.5
+damping_relaxation = 4.5
+
+[node name="Mesh" type="MeshInstance3D" parent="WheelFR"]
+transform = Transform3D(0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("WheelMesh")
+surface_material_override/0 = SubResource("WheelMat")
+
+[node name="WheelRL" type="VehicleWheel3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.95, -0.25, -1.35)
+use_as_traction = true
+wheel_radius = 0.4
+wheel_rest_length = 0.3
+wheel_friction_slip = 7.5
+suspension_travel = 0.2
+suspension_stiffness = 24.0
+suspension_max_force = 6000.0
+damping_compression = 3.5
+damping_relaxation = 4.5
+
+[node name="Mesh" type="MeshInstance3D" parent="WheelRL"]
+transform = Transform3D(0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("WheelMesh")
+surface_material_override/0 = SubResource("WheelMat")
+
+[node name="WheelRR" type="VehicleWheel3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.95, -0.25, -1.35)
+use_as_traction = true
+wheel_radius = 0.4
+wheel_rest_length = 0.3
+wheel_friction_slip = 7.5
+suspension_travel = 0.2
+suspension_stiffness = 24.0
+suspension_max_force = 6000.0
+damping_compression = 3.5
+damping_relaxation = 4.5
+
+[node name="Mesh" type="MeshInstance3D" parent="WheelRR"]
+transform = Transform3D(0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("WheelMesh")
+surface_material_override/0 = SubResource("WheelMat")
+
+[node name="ChaseCam" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 9.0)
+fov = 72.0
+
+[node name="EnterZone" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 1
+
+[node name="ZoneShape" type="CollisionShape3D" parent="EnterZone"]
+shape = SubResource("Zone")
+
+[node name="Ram" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 2
+
+[node name="RamShape" type="CollisionShape3D" parent="Ram"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+shape = SubResource("RamShape")
+
+[node name="Prompt" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, 0)
+billboard = 1
+pixel_size = 0.015
+modulate = Color(1, 0.95, 0.6, 1)
+outline_size = 14
+font_size = 80
+text = "Press E to drive"

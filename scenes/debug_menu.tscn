@@ -38,7 +38,7 @@ theme_override_constants/separation = 8
 [node name="Title" type="Label" parent="Panel/Margin/VBox"]
 theme_override_colors/font_color = Color(1, 0.5, 0.7, 1)
 theme_override_font_sizes/font_size = 20
-text = "DEBUG  (F3 to close)"
+text = "DEBUG  (P to close)"
 
 [node name="Status" type="Label" parent="Panel/Margin/VBox"]
 theme_override_font_sizes/font_size = 14
@@ -78,6 +78,17 @@ text = "+1 Life"
 [node name="Heal" type="Button" parent="Panel/Margin/VBox/ResRow"]
 size_flags_horizontal = 3
 text = "Heal"
+
+[node name="GoRow" type="HBoxContainer" parent="Panel/Margin/VBox"]
+theme_override_constants/separation = 6
+
+[node name="GoCity" type="Button" parent="Panel/Margin/VBox/GoRow"]
+size_flags_horizontal = 3
+text = "Go to City"
+
+[node name="GoIsland" type="Button" parent="Panel/Margin/VBox/GoRow"]
+size_flags_horizontal = 3
+text = "Go to Island"
 
 [node name="Reset" type="Button" parent="Panel/Margin/VBox"]
 text = "Reset run"
