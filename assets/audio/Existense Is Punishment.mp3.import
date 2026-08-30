@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://bfhfpee3u2v6w"
+path="res://.godot/imported/Existense Is Punishment.mp3-2bd4fff90a9a282176258fff6280d1c1.mp3str"
+
+[deps]
+
+source_file="res://assets/audio/Existense Is Punishment.mp3"
+dest_files=["res://.godot/imported/Existense Is Punishment.mp3-2bd4fff90a9a282176258fff6280d1c1.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

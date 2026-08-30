@@ -13,6 +13,19 @@ extends Node3D
 @export var anim_excited: String = "Excited_Walk_M"         # finale part 1
 @export var anim_backflip: String = "Backflip"             # finale part 2 → win
 
+# Dialogue text — override per level for different flavor. The mid-quest line
+# gets the live remaining count spliced in (see _talk).
+@export_multiline var intro_lines: PackedStringArray = [
+	"Ayy, fresh blood! Perfect timing. See, these islands are littered with Artifacts — old power cores, real deal stuff.",
+	"Them nightmare heads are sittin' on 'em. Stomp 'em, deck 'em, fly-kick 'em, I don't care — just get the cores.",
+	"Bring me the whole set and somethin' big opens up. Go on, get to work!",
+]
+@export_multiline var progress_hint: String = "Try the launch pads and the high platforms — the big heads hoard the good ones."
+@export_multiline var complete_lines: PackedStringArray = [
+	"No way... you actually got 'em ALL?!",
+	"Ohhh it's happening, it's happening — watch THIS!",
+]
+
 var _anim: AnimationPlayer
 var _player_near: bool = false
 var _pending_begin: bool = false
@@ -82,25 +95,18 @@ func _talk() -> void:
 	Game.cinematic = true   # freeze the player + zoom the camera in for the chat
 	if not Game.quest_active:
 		_pending_begin = true
-		Dialogue.start(npc_name, [
-			"Ayy, fresh blood! Perfect timing. See, these islands are littered with Artifacts — old power cores, real deal stuff.",
-			"Them nightmare heads are sittin' on 'em. Stomp 'em, deck 'em, fly-kick 'em, I don't care — just get the cores.",
-			"Bring me the whole set and somethin' big opens up. Go on, get to work!",
-		])
+		Dialogue.start(npc_name, Array(intro_lines))
 	elif not Game.artifacts_all_found():
 		var left := Game.total_artifacts - Game.score
 		if _anim and _anim.has_animation(anim_shock):
 			_anim.play(anim_shock)
 		Dialogue.start(npc_name, [
 			"Bzzt— agh! Still %d Artifact%s out there, don't leave me hangin'!" % [left, "" if left == 1 else "s"],
-			"Try the launch pads and the high platforms — the big heads hoard the good ones.",
+			progress_hint,
 		])
 	else:
 		_complete_talk = true
-		Dialogue.start(npc_name, [
-			"No way... you actually got 'em ALL?!",
-			"Ohhh it's happening, it's happening — watch THIS!",
-		])
+		Dialogue.start(npc_name, Array(complete_lines))
 
 func _on_dialogue_finished() -> void:
 	if _pending_begin:

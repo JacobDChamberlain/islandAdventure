@@ -36,8 +36,8 @@ func _ready() -> void:
 	_exotic = _variants(SCIFI + "forceField")
 	if _exotic.is_empty():
 		_exotic = _one(INTERFACE + "confirmation_001.ogg")
-	# Coins get a bright "ching" (multiple variants → a nice cascade on a burst).
-	_coin = _variants(INTERFACE + "glass")
+	# Coins get a bright "ching" — pinned to one chosen variant.
+	_coin = _one(INTERFACE + "glass_004.ogg")
 	_step = _variants(IMPACT + "footstep_grass")
 	_jump = _variants(IMPACT + "impactSoft_medium")
 	for base in WEIRD_BASES:

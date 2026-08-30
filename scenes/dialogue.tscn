@@ -24,7 +24,7 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 140.0
-offset_top = -200.0
+offset_top = -250.0
 offset_right = -140.0
 offset_bottom = -32.0
 grow_horizontal = 2
@@ -54,11 +54,13 @@ text = "Elder"
 size_flags_vertical = 3
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 28
 autowrap_mode = 2
 
 [node name="Hint" type="Label" parent="Panel/Margin/VBox"]
-modulate = Color(1, 1, 1, 0.55)
-theme_override_font_sizes/font_size = 15
-text = "E / Space to continue"
+modulate = Color(1, 1, 1, 0.7)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 30
+text = "Press Enter to continue"
 horizontal_alignment = 2

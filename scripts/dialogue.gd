@@ -46,6 +46,6 @@ func _input(event: InputEvent) -> void:
 	if not active or Engine.get_frames_drawn() == _opened_frame:
 		return
 	if event is InputEventKey and event.pressed and not event.echo \
-			and (event.physical_keycode == KEY_E or event.physical_keycode == KEY_SPACE):
+			and event.physical_keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_E, KEY_SPACE]:
 		advance()
 		get_viewport().set_input_as_handled()
