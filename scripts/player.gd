@@ -51,6 +51,14 @@ var _cine_blend: float = 0.0 # 0..1 toward the zoomed-in conversation framing
 @export var sprint_speed: float = 20.0     # speed while sprinting
 @export var double_tap_window: float = 0.3 # max seconds between the two W taps
 
+# --- Grapple hook (Q / middle-mouse): fire at a surface, reel up onto roofs ---
+@export var can_grapple: bool = false            # gated per-level (city on); later a 25-coin shop unlock
+@export var grapple_range: float = 48.0          # how far the hook can reach
+@export var grapple_reel_speed: float = 34.0     # how fast you're pulled to the anchor
+@export var grapple_release_dist: float = 3.0    # let go once this close to the anchor
+@export var grapple_release_pop: float = 13.0    # upward pop on release so you crest the ledge
+@export var grapple_max_time: float = 2.5        # safety auto-release if we jam on a wall
+
 # --- Animation clip names (must match the clips baked into the .glb) ---
 @export var anim_idle: String = "Idle_6"
 @export var anim_run: String = "Running"
@@ -89,6 +97,14 @@ var _attacking: bool = false
 var _dancing: bool = false
 var _punch_toggle: bool = false   # alternate the two punch clips
 
+# --- Grapple state ---
+var _grappling: bool = false
+var _grapple_point: Vector3 = Vector3.ZERO
+var _grapple_target: Node3D = null   # set when hooked onto a (moving) kaiju
+var _grapple_time: float = 0.0
+var _rope: MeshInstance3D
+var _reticle: Label
+
 @onready var camera_pivot: Node3D = $CameraPivot
 @onready var camera: Camera3D = $CameraPivot/Camera3D
 @onready var model: Node3D = get_node_or_null("Model")
@@ -109,6 +125,7 @@ func _ready() -> void:
 	# Auto-scale and plant the hero model so it fits the collision capsule.
 	_fit_model()
 	_setup_animation()
+	_setup_grapple_visuals()
 	_snap_to_ground()
 
 func _snap_to_ground() -> void:
@@ -120,6 +137,163 @@ func _snap_to_ground() -> void:
 		global_position.y = island.height_at(global_position.x, global_position.z) + 3.0
 		velocity = Vector3.ZERO
 	_spawn_point = global_position
+
+# --- Grapple hook ------------------------------------------------------------
+# A rope (world-space line) + a center-screen crosshair, both built in code so
+# they ride along with any player scene without editing the .tscn.
+
+func _setup_grapple_visuals() -> void:
+	# The rope is a unit-height cylinder we stretch/orient between hand and anchor
+	# each frame — a thick, bright, glowing tube (lines can't be made thick).
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.14
+	cyl.bottom_radius = 0.14
+	cyl.height = 1.0
+	cyl.radial_segments = 8
+	_rope = MeshInstance3D.new()
+	_rope.mesh = cyl
+	_rope.top_level = true   # draw in world coordinates, not relative to the player
+	_rope.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(0.2, 1.0, 0.5)
+	mat.emission_enabled = true
+	mat.emission = Color(0.25, 1.0, 0.5)
+	mat.emission_energy_multiplier = 8.0
+	_rope.material_override = mat
+	_rope.visible = false
+	add_child(_rope)
+
+	var layer := CanvasLayer.new()
+	add_child(layer)
+	_reticle = Label.new()
+	_reticle.text = "+"
+	_reticle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_reticle.add_theme_font_size_override("font_size", 30)
+	_reticle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_reticle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_reticle.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(_reticle)
+
+# Ray from the center of the screen out to grapple_range (world, terrain/buildings).
+func _aim_ray() -> Dictionary:
+	if camera == null:
+		return {}
+	var center := get_viewport().get_visible_rect().size * 0.5
+	var from := camera.project_ray_origin(center)
+	var to := from + camera.project_ray_normal(center) * grapple_range
+	var q := PhysicsRayQueryParameters3D.create(from, to)
+	q.collision_mask = 1 | 4            # world geometry (layer 1) + kaiju (layer 3)
+	q.collide_with_areas = false
+	q.exclude = [get_rid()]
+	return get_world_3d().direct_space_state.intersect_ray(q)
+
+func _fire_grapple() -> void:
+	if not can_grapple or _grappling or _attacking or Dialogue.active or Game.cinematic:
+		return
+	var hit := _aim_ray()
+	if hit.is_empty():
+		return
+	var p: Vector3 = hit.position
+	if global_position.distance_to(p) < grapple_release_dist:
+		return                          # basically at our feet — ignore
+	_grapple_target = null
+	var collider = hit.get("collider")
+	if collider and collider is Node and collider.is_in_group("enemy"):
+		# Hooked a kaiju: track it (it moves) and aim just above its crown, so the
+		# reel carries us up and we drop onto its head for the stomp.
+		_grapple_target = collider
+	else:
+		# If we hit a building's SIDE, retarget the anchor to a point on its ROOFTOP
+		# (just inside the near edge) so the reel pulls us up and over, instead of
+		# dragging us into the wall.
+		var ground := get_tree().get_first_node_in_group("island")
+		if ground and ground.has_method("building_top_at"):
+			var roof: float = ground.building_top_at(p.x, p.z)
+			if roof > p.y + 1.0:
+				var into := Vector3(p.x - global_position.x, 0.0, p.z - global_position.z)
+				if into.length() > 0.01:
+					into = into.normalized()
+				p = Vector3(p.x, roof + 1.5, p.z) + into * 5.0   # a few meters onto the roof
+	_grapple_point = p
+	_grappling = true
+	_grapple_time = 0.0
+	_cancel_dance()
+	if _grapple_target:
+		_track_grapple_target()
+	_rope.visible = true
+	_update_rope()
+	Sfx.jump()
+
+# Aim the anchor just above a hooked kaiju's head, following it as it moves.
+func _track_grapple_target() -> void:
+	if not is_instance_valid(_grapple_target):
+		return
+	var half := 1.3
+	if "model_height" in _grapple_target:
+		half = _grapple_target.model_height * 0.5 * _grapple_target.global_transform.basis.get_scale().y
+	_grapple_point = _grapple_target.global_position + Vector3.UP * (half + 1.5)
+
+func _end_grapple(pop: bool) -> void:
+	if not _grappling:
+		return
+	_grappling = false
+	_grapple_target = null
+	_rope.visible = false
+	if pop:
+		velocity.y = maxf(velocity.y, grapple_release_pop)
+		jumps_left = max_jumps          # like a launch pad: refill air-jumps
+
+# Reel toward the anchor each frame; release (with an upward pop) on arrival,
+# on landing, or after the safety timeout if we jam against a wall.
+func _grapple_step(delta: float) -> void:
+	_grapple_time += delta
+	# Follow a hooked kaiju (it walks around) — or bail if it died mid-swing.
+	if _grapple_target != null:
+		if not is_instance_valid(_grapple_target):
+			_end_grapple(true)
+			return
+		_track_grapple_target()
+	var to_point := _grapple_point - global_position
+	if to_point.length() <= grapple_release_dist or _grapple_time >= grapple_max_time:
+		_end_grapple(true)
+	else:
+		velocity = to_point.normalized() * grapple_reel_speed
+		move_and_slide()
+		if is_on_floor():
+			_end_grapple(true)
+		else:
+			_update_rope()
+	_update_animation()
+	_update_camera(delta)
+
+func _update_rope() -> void:
+	if _rope == null:
+		return
+	var start := global_position + Vector3.UP + (-transform.basis.z) * 0.3
+	var to_end := _grapple_point - start
+	var length := to_end.length()
+	if length < 0.05:
+		return
+	var y_axis := to_end / length
+	var x_axis := y_axis.cross(Vector3.UP)
+	if x_axis.length() < 0.001:
+		x_axis = y_axis.cross(Vector3.RIGHT)
+	x_axis = x_axis.normalized()
+	var z_axis := x_axis.cross(y_axis).normalized()
+	var basis := Basis(x_axis, y_axis, z_axis).scaled(Vector3(1.0, length, 1.0))
+	_rope.global_transform = Transform3D(basis, (start + _grapple_point) * 0.5)
+
+# Crosshair: dim white normally, green when a valid anchor is in range.
+func _update_reticle() -> void:
+	if _reticle == null:
+		return
+	var show := can_grapple and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not Dialogue.active and not Game.cinematic
+	_reticle.visible = show
+	if not show:
+		return
+	var hot := _grappling or not _aim_ray().is_empty()
+	_reticle.modulate = Color(0.5, 1.0, 0.6, 0.95) if hot else Color(1, 1, 1, 0.5)
 
 func _setup_animation() -> void:
 	if model == null:
@@ -375,7 +549,7 @@ func _input(event: InputEvent) -> void:
 		var sens := mouse_sensitivity * Settings.sensitivity
 		rotate_y(-event.relative.x * sens)
 		camera_pivot.rotate_x(-event.relative.y * sens)
-		camera_pivot.rotation.x = clamp(camera_pivot.rotation.x, deg_to_rad(-70), deg_to_rad(25))
+		camera_pivot.rotation.x = clamp(camera_pivot.rotation.x, deg_to_rad(-70), deg_to_rad(80))
 	# Click to recapture the mouse (e.g. after unpausing). Esc is handled by the
 	# pause menu, not here.
 	if event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
@@ -386,16 +560,23 @@ func _input(event: InputEvent) -> void:
 			_attack("punch")
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			_attack("kick")
-	# Keyboard alternatives: J punch, K kick, G dance.
+		elif event.button_index == MOUSE_BUTTON_MIDDLE:
+			_fire_grapple()
+	# Keyboard alternatives: J punch, K kick, G/H dance, Q grapple.
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
 			KEY_J: _attack("punch")
 			KEY_K: _attack("kick")
 			KEY_G: _toggle_dance(anim_dance)
 			KEY_H: _toggle_dance(anim_dance2)
+			KEY_Q: _fire_grapple()
 	# Jump on the moment Space is pressed (not while held), so double-jump works.
+	# Space while grappling lets go early (with the launch pop).
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE:
-		_try_jump()
+		if _grappling:
+			_end_grapple(true)
+		else:
+			_try_jump()
 	# Double-tap W (then keep it held) to sprint.
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_W:
 		var now := Time.get_ticks_msec() / 1000.0
@@ -407,6 +588,17 @@ func _physics_process(delta: float) -> void:
 	# Count down invulnerability after a hit.
 	if _invuln > 0.0:
 		_invuln -= delta
+
+	_update_reticle()
+
+	# A scripted moment starting mid-swing cancels the grapple (no upward pop).
+	if (Dialogue.active or Game.cinematic) and _grappling:
+		_end_grapple(false)
+
+	# Grappling overrides normal movement: reel toward the anchor.
+	if _grappling:
+		_grapple_step(delta)
+		return
 
 	# Frozen in place while talking to an NPC (or during the Elder's finale).
 	if Dialogue.active or Game.cinematic:

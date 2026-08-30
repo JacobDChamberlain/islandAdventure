@@ -75,6 +75,7 @@ func _register_enemy(e: Node) -> void:
 		"xform": e.transform,
 		"yaw": e.model_yaw_offset_deg,
 		"roam": e.roam_radius,
+		"hp": e.max_hp,
 	}
 	e.died.connect(_on_enemy_died.bind(cfg))
 
@@ -86,5 +87,6 @@ func _on_enemy_died(cfg: Dictionary) -> void:
 	e.transform = cfg["xform"]        # heads are root-level, so local == world here
 	e.model_yaw_offset_deg = cfg["yaw"]
 	e.roam_radius = cfg["roam"]
+	e.max_hp = cfg["hp"]
 	add_child(e)
 	_register_enemy(e)

@@ -1,10 +1,16 @@
 extends Control
 # Shown on victory (all artifacts) or game over (out of lives). Pauses the game
 # and offers Play Again / Quit to Title.
+#
+# On the island, completing the quest instead opens the portal to the city, so
+# there's no "YOU WIN" there — set show_victory = false. The city (the final
+# level) keeps it true, so finishing its quest is the real win.
+@export var show_victory: bool = true
 
 func _ready() -> void:
 	Game.game_over.connect(_on_game_over)
-	Game.all_artifacts_collected.connect(_on_victory)
+	if show_victory:
+		Game.all_artifacts_collected.connect(_on_victory)
 	$VBox/PlayAgain.pressed.connect(_play_again)
 	$VBox/QuitTitle.pressed.connect(_quit_title)
 	Sfx.wire_button($VBox/PlayAgain)

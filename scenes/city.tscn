@@ -98,6 +98,7 @@ script = ExtResource("9_city")
 [node name="Player" type="CharacterBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, 18)
 script = ExtResource("2_player")
+can_grapple = true
 speed = 13.0
 jump_velocity = 19.0
 gravity = 60.0
@@ -127,7 +128,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 5)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 56, 20, 56)
 
 [node name="Artifact2" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -56, 20, 112)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -28, 20, -28)
+snap_to_roof = true
 
 [node name="Artifact3" parent="." instance=ExtResource("3_gem")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 112, 20, -56)
@@ -136,7 +138,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 112, 20, -56)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -112, 20, -112)
 
 [node name="Artifact5" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, 168)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 140, 20, 140)
+snap_to_roof = true
 
 [node name="Artifact6" parent="." instance=ExtResource("3_gem")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 168, 20, 0)
@@ -145,35 +148,60 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 168, 20, 0)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -168, 20, 168)
 
 [node name="Artifact8" parent="." instance=ExtResource("3_gem")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 112, 20, 112)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -84, 20, -84)
+snap_to_roof = true
 
 [node name="Elder" parent="." instance=ExtResource("20_npc")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 20, -8)
+intro_lines = PackedStringArray("Whoa— you made it through the portal! Welcome to the City, kid. Bigger, meaner, way more concrete.", "Same deal as the island, but these heads got smart — they stashed the Artifacts up on the rooftops and down the alleys.", "Round up the whole set and turn 'em in. Show this town what an islander can do!")
+progress_hint = "Work the rooftops and the back alleys — check the plaza and the tall blocks downtown."
+complete_lines = PackedStringArray("Get OUTTA here — every last Artifact, in the big city?!", "You're the real deal, kid. Watch me lose my mind — THIS is for you!")
 
-[node name="Enemy1" parent="." instance=ExtResource("4_enemy")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 56, 20, 0)
+; City heads: the "big head" from level 1 (scale 3.8) is now the BASELINE, plus
+; two FUCKIN MASSIVE ones strolling the avenues, and a couple small roamers.
+[node name="Enemy1_Big" parent="." instance=ExtResource("4_enemy")]
+transform = Transform3D(3.8, 0, 0, 0, 3.8, 0, 0, 0, 3.8, 56, 20, 0)
 model_yaw_offset_deg = 0.0
+roam_radius = 30.0
 
-[node name="Enemy2" parent="." instance=ExtResource("4_enemy")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -56, 20, 56)
+[node name="Enemy2_Big" parent="." instance=ExtResource("4_enemy")]
+transform = Transform3D(3.8, 0, 0, 0, 3.8, 0, 0, 0, 3.8, -56, 20, 56)
 model_yaw_offset_deg = 0.0
+roam_radius = 30.0
 
-[node name="Enemy3" parent="." instance=ExtResource("4_enemy")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, -56)
+[node name="Enemy3_Big" parent="." instance=ExtResource("4_enemy")]
+transform = Transform3D(3.8, 0, 0, 0, 3.8, 0, 0, 0, 3.8, 0, 20, -56)
 model_yaw_offset_deg = 0.0
+roam_radius = 30.0
 
-[node name="Enemy4" parent="." instance=ExtResource("4_enemy")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 112, 20, 56)
+[node name="Enemy4_Big" parent="." instance=ExtResource("4_enemy")]
+transform = Transform3D(3.8, 0, 0, 0, 3.8, 0, 0, 0, 3.8, 112, 20, 56)
 model_yaw_offset_deg = 0.0
+roam_radius = 30.0
 
-[node name="Enemy5" parent="." instance=ExtResource("4_enemy")]
+[node name="Enemy5_Small" parent="." instance=ExtResource("4_enemy")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -112, 20, -56)
 model_yaw_offset_deg = 0.0
+roam_radius = 20.0
 
-[node name="Enemy6_Giant" parent="." instance=ExtResource("4_enemy")]
-transform = Transform3D(3.8, 0, 0, 0, 3.8, 0, 0, 0, 3.8, 0, 20, 168)
+[node name="Enemy6_Small" parent="." instance=ExtResource("4_enemy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 56, 20, -112)
+model_yaw_offset_deg = 0.0
+roam_radius = 20.0
+
+; Kaiju: UNIFORM scale (proper proportions). Enemy7 ~42m, Enemy8 ~52m tall — wider
+; than the 12m streets, so they clip through buildings as they roam (accepted).
+[node name="Enemy7_Massive" parent="." instance=ExtResource("4_enemy")]
+transform = Transform3D(16, 0, 0, 0, 16, 0, 0, 0, 16, 0, 20, 168)
 model_yaw_offset_deg = 0.0
 roam_radius = 50.0
+max_hp = 6
+
+[node name="Enemy8_Massive" parent="." instance=ExtResource("4_enemy")]
+transform = Transform3D(20, 0, 0, 0, 20, 0, 0, 0, 20, -112, 20, 112)
+model_yaw_offset_deg = 0.0
+roam_radius = 50.0
+max_hp = 8
 
 [node name="LaunchPad1" parent="." instance=ExtResource("12_pad")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 56, 5, -56)
@@ -223,7 +251,7 @@ period = 6.0
 base_offset = 2.5
 
 [node name="PortalToIsland" parent="." instance=ExtResource("21_portal")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16, 0, 14)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 0)
 target_scene = "res://scenes/main.tscn"
 label_text = "ISLAND"
 

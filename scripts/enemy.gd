@@ -37,6 +37,7 @@ enum State { WANDER, PAUSE, CHASE, ATTACK, HIT }
 const WALK := "Walking"
 const RUN := "Running"
 const SPRINT := "RunFast"
+const VERTICAL_MARGIN := 2.0   # vertical slack (m) on top of the head's body span
 const HIT_FRONT := "Hit_Reaction"
 const HIT_BACK := "Hit_in_Back_While_Running"
 const ATTACKS: Array[String] = [
@@ -78,6 +79,10 @@ func _ready() -> void:
 		var half := model_height * 0.5 * global_transform.basis.get_scale().y
 		global_position.y = _island.height_at(global_position.x, global_position.z) + half
 	_home = global_position
+	# Big kaiju are grapple-able: add collision layer 3 so the hook's ray (which
+	# masks layers 1+3) can target them, while small heads stay unhookable.
+	if global_transform.basis.get_scale().y >= 10.0:
+		set_collision_layer_value(3, true)
 	_setup_model()
 	_setup_audio()
 	_enter_wander()
@@ -126,13 +131,37 @@ func _get_player() -> Node3D:
 
 # --- Night aggression: heads see farther, hunt longer, and run faster at night.
 func _detect_range() -> float:
-	return detect_range * (night_detect_mult if Game.is_night else 1.0)
+	return (detect_range + _size_reach() * 1.5) * (night_detect_mult if Game.is_night else 1.0)
 
 func _lose_range() -> float:
-	return lose_range * (night_detect_mult if Game.is_night else 1.0)
+	return (lose_range + _size_reach() * 1.5) * (night_detect_mult if Game.is_night else 1.0)
+
+func _attack_range() -> float:
+	return attack_range + _size_reach()
 
 func _chase_speed() -> float:
 	return chase_speed * (night_speed_mult if Game.is_night else 1.0)
+
+# A head's horizontal reach ~ its collision radius (0.6 * uniform scale). Big heads
+# sit high up, so detection/attack use horizontal distance + this reach — otherwise
+# a grounded player is always "too far" from a giant's high origin.
+func _size_reach() -> float:
+	return 0.6 * global_transform.basis.get_scale().y
+
+func _horiz_dist(a: Vector3, b: Vector3) -> float:
+	return Vector2(a.x - b.x, a.z - b.z).length()
+
+# Half the head's vertical extent (origin to feet / origin to top).
+func _world_half() -> float:
+	return model_height * 0.5 * global_transform.basis.get_scale().y
+
+# Is the target within this head's VERTICAL reach? Compares against the head's own
+# body span (feet..top) + a small margin, so detection/attacks respect height:
+# a short head can't hit someone up on a platform, but a giant — whose body spans
+# tens of meters — still reaches a grounded player far below its origin. Standing
+# together on the same surface passes; a big vertical gap fails.
+func _same_level(p: Node3D) -> bool:
+	return absf(p.global_position.y - global_position.y) <= _world_half() + VERTICAL_MARGIN
 
 func _on_anim_finished(_name: String) -> void:
 	# Idle actions and attacks are one-shots → decide what to do next.
@@ -142,11 +171,11 @@ func _on_anim_finished(_name: String) -> void:
 func _reevaluate() -> void:
 	var p := _get_player()
 	if p:
-		var d := global_position.distance_to(p.global_position)
-		if d <= attack_range:
+		var d := _horiz_dist(global_position, p.global_position)
+		if d <= _attack_range() and _same_level(p):
 			_enter_attack()
 			return
-		elif d <= _detect_range():
+		elif d <= _detect_range() and _same_level(p):
 			_enter_chase()
 			return
 	_enter_wander()
@@ -218,23 +247,23 @@ func _physics_process(delta: float) -> void:
 	var p := _get_player()
 	var dist := INF
 	if p:
-		dist = global_position.distance_to(p.global_position)
+		dist = _horiz_dist(global_position, p.global_position)
 
 	match _state:
 		State.WANDER:
-			if p and dist <= _detect_range():
+			if p and dist <= _detect_range() and _same_level(p):
 				_enter_chase()
 			else:
 				_wander_move(delta)
 		State.PAUSE:
-			if p and dist <= _detect_range():
+			if p and dist <= _detect_range() and _same_level(p):
 				_enter_chase()
 			else:
 				_brake(delta)
 		State.CHASE:
-			if p == null or dist > _lose_range():
+			if p == null or dist > _lose_range() or not _same_level(p):
 				_enter_wander()
-			elif dist <= attack_range:
+			elif dist <= _attack_range():
 				_enter_attack()
 			else:
 				_chase_move(p, delta)
@@ -247,7 +276,7 @@ func _physics_process(delta: float) -> void:
 				_atk_timer -= delta
 				if _atk_timer <= 0.0:
 					_atk_dealt = true
-					if p and global_position.distance_to(p.global_position) <= attack_range * 1.4 and p.has_method("take_hit"):
+					if p and _horiz_dist(global_position, p.global_position) <= _attack_range() * 1.4 and _same_level(p) and p.has_method("take_hit"):
 						p.take_hit(global_position)
 		State.HIT:
 			_brake(delta)
@@ -270,7 +299,12 @@ func _physics_process(delta: float) -> void:
 func _wander_move(delta: float) -> void:
 	var ahead := global_position + _heading * 3.0
 	var too_far := global_position.distance_to(_home) > roam_radius
-	var into_water: bool = _island != null and _island.height_at(ahead.x, ahead.z) < 1.5
+	var into_water := false
+	if _island != null:
+		if _island.has_method("is_walkable"):
+			into_water = not _island.is_walkable(ahead.x, ahead.z)
+		else:
+			into_water = _island.height_at(ahead.x, ahead.z) < 1.5
 	if too_far or into_water:
 		var back := _home - global_position
 		back.y = 0.0
@@ -376,12 +410,17 @@ func _maybe_drop_exotic() -> void:
 	var chance := clampf(exotic_drop_chance * (1.0 + (sc - 1.0) * 0.2), 0.0, 0.9)
 	if _rng.randf() > chance:
 		return
-	var drop := EXOTIC_SCENE.instantiate()
 	var parent := get_parent()
 	if parent == null:
 		return
-	parent.add_child(drop)
-	drop.global_position = global_position + Vector3.UP * 1.0
+	# Only the FUCKIN MASSIVE kaiju (scale ~16-20) yield a haul (2-3); every other
+	# head — including the 3.8x "big" ones — drops a single blob.
+	var count := _rng.randi_range(2, 3) if sc >= 10.0 else 1
+	for i in count:
+		var drop := EXOTIC_SCENE.instantiate()
+		parent.add_child(drop)
+		drop.global_position = global_position + Vector3.UP * 1.0 \
+			+ Vector3(_rng.randf_range(-1.5, 1.5), 0.0, _rng.randf_range(-1.5, 1.5))
 
 # --- Model fitting ------------------------------------------------------------
 

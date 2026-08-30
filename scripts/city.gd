@@ -39,6 +39,10 @@ func _ready() -> void:
 func height_at(x: float, z: float) -> float:
 	return base_height + _ground.get_noise_2d(x, z) * roll_amp
 
+# The whole city is dry ground — heads may roam anywhere (no water to avoid).
+func is_walkable(_x: float, _z: float) -> bool:
+	return true
+
 # --- Deterministic grid helpers -----------------------------------------------
 # A per-block hash keeps the ground COLOR and the BUILDING geometry in agreement
 # without storing anything: both call the same pure functions of block index.
@@ -66,6 +70,35 @@ func _block_center(i: int) -> float:
 
 func _block_is_park(ix: int, iz: int) -> bool:
 	return _hash01(ix, iz, 7) < park_chance
+
+# Does this block hold a building? (Not the plaza, not the clear rim, not a park.)
+func _block_has_building(ix: int, iz: int) -> bool:
+	var cx := _block_center(ix)
+	var cz := _block_center(iz)
+	var rim := extent - block_size
+	if absf(cx) > rim or absf(cz) > rim:
+		return false
+	if Vector2(cx, cz).length() < plaza_radius:
+		return false
+	return not _block_is_park(ix, iz)
+
+# Floors for a block's building — grows toward center, jittered per block.
+func _building_floors(ix: int, iz: int) -> int:
+	var cx := _block_center(ix)
+	var cz := _block_center(iz)
+	var t := clampf(1.0 - Vector2(cx, cz).length() / (extent * 0.9), 0.0, 1.0)
+	var base_f := lerpf(float(min_floors), float(max_floors), t)
+	var jitter := (_hash01(ix, iz, 5) - 0.5) * 4.0
+	return clampi(int(round(base_f + jitter)), min_floors, max_floors + 3)
+
+# World Y of the rooftop surface at x,z — or the ground height if no building is
+# there. Used by rooftop artifacts (collectible.snap_to_roof) to sit up top.
+func building_top_at(x: float, z: float) -> float:
+	var ix := _block_index(x)
+	var iz := _block_index(z)
+	if not _block_has_building(ix, iz):
+		return height_at(x, z)
+	return height_at(_block_center(ix), _block_center(iz)) + _building_floors(ix, iz) * floor_height
 
 # --- Ground mesh (colored by road / plaza / park / sidewalk) ------------------
 
@@ -152,11 +185,7 @@ func _build_city() -> void:
 				_scatter_park_trees(ix, iz, cx, cz, tree_xf)
 				continue
 
-			# Height grows toward center; jittered per block for variety.
-			var t := clampf(1.0 - Vector2(cx, cz).length() / (extent * 0.9), 0.0, 1.0)
-			var base_f := lerpf(float(min_floors), float(max_floors), t)
-			var jitter := (_hash01(ix, iz, 5) - 0.5) * 4.0
-			var floors := clampi(int(round(base_f + jitter)), min_floors, max_floors + 3)
+			var floors := _building_floors(ix, iz)
 			var h := floors * floor_height
 			var fw := block_size * lerpf(0.5, 0.78, _hash01(ix, iz, 11))
 			var fd := block_size * lerpf(0.5, 0.78, _hash01(ix, iz, 13))

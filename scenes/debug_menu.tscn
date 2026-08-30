@@ -1,0 +1,83 @@
+[gd_scene load_steps=3 format=3 uid="uid://c0debug00001"]
+
+[ext_resource type="Script" path="res://scripts/debug_menu.gd" id="1_dbg"]
+
+[sub_resource type="StyleBoxFlat" id="DbgBox"]
+bg_color = Color(0.05, 0.06, 0.09, 0.94)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.9, 0.3, 0.5, 0.9)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="DebugMenu" type="CanvasLayer"]
+process_mode = 3
+layer = 30
+script = ExtResource("1_dbg")
+
+[node name="Panel" type="PanelContainer" parent="."]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 380.0
+offset_bottom = 300.0
+theme_override_styles/panel = SubResource("DbgBox")
+
+[node name="Margin" type="MarginContainer" parent="Panel"]
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="VBox" type="VBoxContainer" parent="Panel/Margin"]
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Panel/Margin/VBox"]
+theme_override_colors/font_color = Color(1, 0.5, 0.7, 1)
+theme_override_font_sizes/font_size = 20
+text = "DEBUG  (F3 to close)"
+
+[node name="Status" type="Label" parent="Panel/Margin/VBox"]
+theme_override_font_sizes/font_size = 14
+text = "Artifacts 0 / 0"
+
+[node name="CountRow" type="HBoxContainer" parent="Panel/Margin/VBox"]
+theme_override_constants/separation = 8
+
+[node name="Label" type="Label" parent="Panel/Margin/VBox/CountRow"]
+text = "Collected:"
+
+[node name="Count" type="SpinBox" parent="Panel/Margin/VBox/CountRow"]
+size_flags_horizontal = 3
+max_value = 8.0
+
+[node name="CollectAll" type="Button" parent="Panel/Margin/VBox"]
+text = "Collect ALL artifacts"
+
+[node name="Complete" type="Button" parent="Panel/Margin/VBox"]
+text = "Complete quest  (open portal / win)"
+
+[node name="ResRow" type="HBoxContainer" parent="Panel/Margin/VBox"]
+theme_override_constants/separation = 6
+
+[node name="Coins" type="Button" parent="Panel/Margin/VBox/ResRow"]
+size_flags_horizontal = 3
+text = "+10 Coins"
+
+[node name="Exotic" type="Button" parent="Panel/Margin/VBox/ResRow"]
+size_flags_horizontal = 3
+text = "+1 Exotic"
+
+[node name="Life" type="Button" parent="Panel/Margin/VBox/ResRow"]
+size_flags_horizontal = 3
+text = "+1 Life"
+
+[node name="Heal" type="Button" parent="Panel/Margin/VBox/ResRow"]
+size_flags_horizontal = 3
+text = "Heal"
+
+[node name="Reset" type="Button" parent="Panel/Margin/VBox"]
+text = "Reset run"

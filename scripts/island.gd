@@ -39,6 +39,11 @@ func height_at(x: float, z: float) -> float:
 		return h
 	return land * seabed_depth
 
+# Enemies avoid steering into the sea: anything below the shoreline margin is
+# "not walkable". (The city overrides this — it has no water.)
+func is_walkable(x: float, z: float) -> bool:
+	return height_at(x, z) >= 1.5
+
 func _color_for(y: float) -> Color:
 	var sand := Color(0.83, 0.76, 0.52)
 	var grass := Color(0.34, 0.6, 0.28)
