@@ -91,7 +91,6 @@ script = ExtResource("1_main")
 [node name="Music" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("23_music")
 volume_db = -5.0
-autoplay = true
 bus = &"Music"
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]

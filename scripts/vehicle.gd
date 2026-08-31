@@ -39,8 +39,19 @@ var _upside_timer: float = 0.0
 
 @onready var cam: Camera3D = $ChaseCam
 @onready var prompt: Label3D = $Prompt
+@export_file("*.wav", "*.ogg") var engine_sound: String = "res://assets/audio/engine_idle_1.wav"
+@export var screech_start: float = 0.08   # skip the silent lead-in of the screech samples
 var _engine: AudioStreamPlayer3D
-var _skid: AudioStreamPlayer3D
+var _skid: AudioStreamPlayer3D          # tyre screech one-shots
+var _impact: AudioStreamPlayer3D        # crash / splat one-shots
+var _screeches: Array = []
+var _crashes: Array = []
+var _splat: AudioStream
+var _was_skidding: bool = false
+var _prev_vel: Vector3 = Vector3.ZERO
+var _crash_cd: float = 0.0
+var _level_music: AudioStreamPlayer = null   # city track, played only while driving
+var _music_started: bool = false
 
 func _ready() -> void:
 	add_to_group("vehicle")
@@ -55,24 +66,48 @@ func _ready() -> void:
 	var g := get_tree().get_first_node_in_group("island")
 	if g and g.has_method("height_at"):
 		global_position.y = g.height_at(global_position.x, global_position.z) + 0.8
+	# The city's background track plays only while driving (resumes where it left off).
+	var scene := get_tree().current_scene
+	if scene:
+		_level_music = scene.get_node_or_null("Music") as AudioStreamPlayer
 
 func _setup_audio() -> void:
 	_engine = AudioStreamPlayer3D.new()
-	_engine.stream = _looping("res://assets/audio/kenney_sci-fi-sounds/Audio/spaceEngineLow_000.ogg")
+	_engine.stream = _make_looping(load(engine_sound))
 	_engine.unit_size = 12.0
 	_engine.max_distance = 60.0
-	_engine.volume_db = -8.0
+	_engine.volume_db = -6.0
 	add_child(_engine)
+	# Tyre screeches: one-shots we pick from at random on each sharp turn/drift.
+	_screeches = [
+		load("res://assets/audio/tire_screech_1.wav"),
+		load("res://assets/audio/tire_screech_2.wav"),
+		load("res://assets/audio/tire_screech_3.wav"),
+	]
 	_skid = AudioStreamPlayer3D.new()
-	_skid.stream = _looping("res://assets/audio/kenney_sci-fi-sounds/Audio/computerNoise_000.ogg")
 	_skid.unit_size = 10.0
 	_skid.max_distance = 45.0
-	_skid.volume_db = -60.0
 	add_child(_skid)
+	# Crash (into walls/trees) + splat (car kill) one-shots.
+	_crashes = [
+		load("res://assets/audio/car_crash_1.wav"),
+		load("res://assets/audio/car_crash_2.wav"),
+	]
+	_splat = load("res://assets/audio/splat.wav")
+	_impact = AudioStreamPlayer3D.new()
+	_impact.unit_size = 12.0
+	_impact.max_distance = 60.0
+	add_child(_impact)
 
-func _looping(path: String) -> AudioStream:
-	var s := load(path)
-	if s is AudioStreamOggVorbis:
+# Force a stream to loop (wav loop_end -1 doesn't actually loop; ogg needs .loop).
+func _make_looping(s: AudioStream) -> AudioStream:
+	if s is AudioStreamWAV:
+		s.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		s.loop_begin = 0
+		s.loop_end = int(s.get_length() * s.mix_rate)
+	elif s is AudioStreamOggVorbis:
+		s.loop = true
+	elif s is AudioStreamMP3:
 		s.loop = true
 	return s
 
@@ -121,7 +156,16 @@ func _board(player: Node) -> void:
 	cam.global_position = global_position - _forward() * cam_back + Vector3.UP * cam_up
 	cam.look_at(global_position + Vector3.UP * cam_look_ahead, Vector3.UP)   # face the car at once
 	cam.current = true
+	_was_skidding = false
+	_prev_vel = linear_velocity
+	_crash_cd = 0.3
 	_engine.play()
+	# Resume the city track (start it the first time, otherwise pick up where it paused).
+	if _level_music:
+		if not _music_started:
+			_level_music.play()
+			_music_started = true
+		_level_music.stream_paused = false
 	Sfx.jump()
 
 func _unboard() -> void:
@@ -131,6 +175,8 @@ func _unboard() -> void:
 	engine_force = 0.0
 	_engine.stop()
 	_skid.stop()
+	if _level_music:
+		_level_music.stream_paused = true   # pause (keeps position) — no music on foot
 	# Drop the hero on the ground beside the driver's door.
 	var side := global_position + global_transform.basis.x * 3.0
 	var g := get_tree().get_first_node_in_group("island")
@@ -172,7 +218,11 @@ func _on_ram(body: Node) -> void:
 		return
 	var dmg := clampi(int(speed / 5.0) + 1, 2, 8)   # >=2 kills small heads; dents kaiju
 	body.hit_by_player(global_position, ram_knockback + speed * 0.6, dmg)
-	Sfx.hit()
+	if _splat and _impact:
+		_impact.stream = _splat
+		_impact.pitch_scale = randf_range(0.95, 1.1)
+		_impact.volume_db = 8.0
+		_impact.play()
 	Fx.poof(body.global_position, Color(0.9, 0.7, 0.3), 22, 2.4)
 
 # Flung upward by a blue launch pad (same contract as the player's launch()).
@@ -228,8 +278,23 @@ func _physics_process(delta: float) -> void:
 	steering = move_toward(steering, steer_in * steer_limit, steer_speed * delta)
 
 	_auto_recover(delta)
+	_check_crash(delta)
 	_update_audio(Input.is_physical_key_pressed(KEY_SPACE))
 	_update_cam(delta)
+
+# A sudden horizontal deceleration = we slammed into a wall/tree → crash sound.
+func _check_crash(delta: float) -> void:
+	_crash_cd = maxf(_crash_cd - delta, 0.0)
+	var h := Vector3(linear_velocity.x, 0.0, linear_velocity.z)
+	var prev_h := Vector3(_prev_vel.x, 0.0, _prev_vel.z)
+	var decel := (prev_h - h).length()
+	if _crash_cd <= 0.0 and prev_h.length() > 6.0 and decel > 7.0 and not _crashes.is_empty():
+		_impact.stream = _crashes[randi() % _crashes.size()]
+		_impact.pitch_scale = randf_range(0.95, 1.08)
+		_impact.volume_db = -2.0
+		_impact.play()
+		_crash_cd = 0.5
+	_prev_vel = linear_velocity
 
 func _axis(pos_key: int, neg_key: int) -> float:
 	return (1.0 if Input.is_physical_key_pressed(pos_key) else 0.0) \
@@ -276,16 +341,18 @@ func _update_audio(braking: bool) -> void:
 	_engine.pitch_scale = lerpf(engine_min_pitch, engine_max_pitch, t)
 	_engine.volume_db = lerpf(-10.0, -3.0, t)
 	# Skid: sideways slip (drift) or hard braking while moving.
-	var skid := clampf((lateral - 3.0) / 7.0, 0.0, 1.0)
+	var skid := clampf((lateral - 2.0) / 6.0, 0.0, 1.0)
 	if braking and speed > 5.0:
-		skid = maxf(skid, 0.6)
-	if skid > 0.06:
-		if not _skid.playing:
-			_skid.play()
-		_skid.volume_db = lerpf(-28.0, -7.0, skid)
-		_skid.pitch_scale = lerpf(0.8, 1.25, skid)
-	elif _skid.playing:
-		_skid.stop()
+		skid = maxf(skid, 0.55)
+	# Fire a fresh random screech on the RISING edge of a sharp turn (hysteresis so
+	# it doesn't retrigger every frame), starting a touch into the sample.
+	var skidding := skid > 0.15
+	if skidding and not _was_skidding and not _screeches.is_empty():
+		_skid.stream = _screeches[randi() % _screeches.size()]
+		_skid.volume_db = lerpf(-10.0, -1.0, skid)
+		_skid.pitch_scale = randf_range(0.94, 1.12)
+		_skid.play(screech_start)
+	_was_skidding = skid > 0.08   # drop below this to re-arm
 
 func _update_cam(delta: float) -> void:
 	# Let mouse orbit the cam; when the mouse goes idle, ease back behind the car.
