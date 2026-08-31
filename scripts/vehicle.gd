@@ -19,6 +19,15 @@ extends VehicleBody3D
 @export var yaw_recover: float = 4.0           # extra yaw damping on the ground when not steering
 @export var roll_recover: float = 7.0          # anti-roll strength (keeps wheels down in turns / rights it)
 
+# --- Model swap (drop a Meshy car GLB here to replace the greybox boxes) ---
+@export var car_model: PackedScene = null      # the .glb (drag it in the Inspector)
+@export var model_scale: float = 0.0           # 0 = auto-fit to the chassis; else exact scale
+@export var model_target_length: float = 4.8   # auto-fit the model's longest axis to this
+@export var model_y_offset: float = 0.0        # nudge up/down so wheels touch the ground
+@export var model_rotation_deg: Vector3 = Vector3.ZERO  # orient the model (x=pitch, y=yaw, z=roll); car drives toward +Z
+@export var hide_greybox: bool = true          # hide the box Body/Cabin/wheels when a model is set
+@export var separate_wheels: bool = false      # true if the GLB has 4 distinct wheel meshes to steer/spin
+
 # Ramming
 @export var ram_min_speed: float = 8.0         # min speed (m/s) to hurt a head
 @export var ram_knockback: float = 16.0        # shove force on a rammed head
@@ -61,6 +70,7 @@ func _ready() -> void:
 	$EnterZone.body_entered.connect(_on_enter_zone)
 	$EnterZone.body_exited.connect(_on_exit_zone)
 	$Ram.body_entered.connect(_on_ram)
+	_setup_car_model()
 	_setup_audio()
 	await get_tree().process_frame
 	var g := get_tree().get_first_node_in_group("island")
@@ -98,6 +108,89 @@ func _setup_audio() -> void:
 	_impact.unit_size = 12.0
 	_impact.max_distance = 60.0
 	add_child(_impact)
+
+# --- Model swap --------------------------------------------------------------
+# Drop a Meshy car GLB into `car_model` and this replaces the greybox boxes:
+# instances it, auto-fits it to the chassis, hides the boxes. The physics
+# (chassis collision + wheels) is untouched. If `separate_wheels`, it also parents
+# the 4 wheel meshes to their VehicleWheel3D so they steer/spin.
+func _setup_car_model() -> void:
+	if car_model == null:
+		return   # no model set → keep the greybox
+	var model := car_model.instantiate() as Node3D
+	if model == null:
+		return
+	var holder := Node3D.new()
+	holder.name = "Model"
+	add_child(holder)
+	holder.add_child(model)
+	model.rotation_degrees = model_rotation_deg   # orient FIRST, then fit the oriented bounds
+
+	var aabb := _model_aabb(holder)               # measured in holder space (includes rotation)
+	if aabb.size.length() > 0.001:
+		var longest: float = maxf(aabb.size.x, aabb.size.z)
+		var s: float = model_scale if model_scale > 0.0 else model_target_length / maxf(longest, 0.001)
+		model.scale = Vector3.ONE * s
+		# Center over the chassis, sit the bottom near the wheels (+ manual nudge).
+		model.position = -aabb.get_center() * s
+		model.position.y += aabb.size.y * 0.5 * s + model_y_offset
+
+	if hide_greybox:
+		for n in ["Body", "Cabin", "WheelFL/Mesh", "WheelFR/Mesh", "WheelRL/Mesh", "WheelRR/Mesh"]:
+			var m := get_node_or_null(n) as Node3D
+			if m:
+				m.visible = false
+
+	if separate_wheels:
+		_attach_model_wheels(model)
+
+# Best-effort: move meshes whose name contains "wheel" onto the nearest
+# VehicleWheel3D so they follow steering/suspension. Falls back silently (solid
+# car) if it can't find 4. Positions get finalized once we see the real model.
+func _attach_model_wheels(model: Node3D) -> void:
+	var wheels := []
+	for w in ["WheelFL", "WheelFR", "WheelRL", "WheelRR"]:
+		var node := get_node_or_null(w)
+		if node:
+			wheels.append(node)
+	var meshes: Array = []
+	for m in model.find_children("*wheel*", "MeshInstance3D", true, false):
+		meshes.append(m)
+	if meshes.size() < wheels.size():
+		push_warning("Vehicle: separate_wheels on, but found %d wheel meshes (need %d) — leaving on body." % [meshes.size(), wheels.size()])
+		return
+	# Match each VehicleWheel3D to its nearest wheel mesh (by world position).
+	for wnode in wheels:
+		var best: Node3D = null
+		var best_d := INF
+		for mesh in meshes:
+			if mesh.get_meta("_taken", false):
+				continue
+			var d: float = wnode.global_position.distance_to((mesh as Node3D).global_position)
+			if d < best_d:
+				best_d = d
+				best = mesh
+		if best:
+			best.set_meta("_taken", true)
+			var keep := best.global_transform
+			best.get_parent().remove_child(best)
+			wnode.add_child(best)
+			best.global_transform = keep   # keep its world placement under the wheel node
+
+func _model_aabb(root: Node3D) -> AABB:
+	var out := AABB()
+	var first := true
+	for child in root.find_children("*", "MeshInstance3D", true, false):
+		var mi := child as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		var box := (root.global_transform.affine_inverse() * mi.global_transform) * mi.mesh.get_aabb()
+		if first:
+			out = box
+			first = false
+		else:
+			out = out.merge(box)
+	return out
 
 # Force a stream to loop (wav loop_end -1 doesn't actually loop; ogg needs .loop).
 func _make_looping(s: AudioStream) -> AudioStream:

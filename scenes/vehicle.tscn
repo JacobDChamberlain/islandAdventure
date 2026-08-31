@@ -1,6 +1,7 @@
-[gd_scene load_steps=12 format=3 uid="uid://c0vehicle0001"]
+[gd_scene load_steps=13 format=3 uid="uid://c0vehicle0001"]
 
 [ext_resource type="Script" path="res://scripts/vehicle.gd" id="1_veh"]
+[ext_resource type="PackedScene" uid="uid://csx5vg8d0kno2" path="res://assets/models/car_meshy_high.glb" id="2_carmodel"]
 
 [sub_resource type="BoxShape3D" id="Chassis"]
 size = Vector3(1.7, 0.6, 3.6)
@@ -51,6 +52,9 @@ angular_damp = 0.8
 collision_layer = 1
 collision_mask = 17
 script = ExtResource("1_veh")
+car_model = ExtResource("2_carmodel")
+model_rotation_deg = Vector3(0, 90, 0)
+model_y_offset = -0.15
 
 [node name="Chassis" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
