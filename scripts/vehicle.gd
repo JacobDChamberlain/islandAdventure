@@ -61,6 +61,7 @@ var _prev_vel: Vector3 = Vector3.ZERO
 var _crash_cd: float = 0.0
 var _level_music: AudioStreamPlayer = null   # city track, played only while driving
 var _music_started: bool = false
+var _wheel_vis: Array = []                    # visual wheel rigs {steer, spin, front, radius}
 
 func _ready() -> void:
 	add_to_group("vehicle")
@@ -144,38 +145,48 @@ func _setup_car_model() -> void:
 	if separate_wheels:
 		_attach_model_wheels(model)
 
-# Best-effort: move meshes whose name contains "wheel" onto the nearest
-# VehicleWheel3D so they follow steering/suspension. Falls back silently (solid
-# car) if it can't find 4. Positions get finalized once we see the real model.
+# Find the model's wheel meshes (named "Wheel*") and give each a steer→spin pivot
+# rig at the wheel's own centre, aligned to the car's axes, so _spin_wheels() can
+# roll them with speed and steer the front pair — while they stay visually on the
+# body (the physics wheels are separate invisible raycasts).
 func _attach_model_wheels(model: Node3D) -> void:
-	var wheels := []
-	for w in ["WheelFL", "WheelFR", "WheelRL", "WheelRR"]:
-		var node := get_node_or_null(w)
-		if node:
-			wheels.append(node)
+	_wheel_vis.clear()
 	var meshes: Array = []
-	for m in model.find_children("*wheel*", "MeshInstance3D", true, false):
-		meshes.append(m)
-	if meshes.size() < wheels.size():
-		push_warning("Vehicle: separate_wheels on, but found %d wheel meshes (need %d) — leaving on body." % [meshes.size(), wheels.size()])
+	for m in model.find_children("*", "MeshInstance3D", true, false):
+		if (m as Node3D).name.to_lower().contains("wheel"):
+			meshes.append(m)
+	if meshes.size() < 4:
+		push_warning("Vehicle: separate_wheels on but found %d wheel meshes — leaving them on the body." % meshes.size())
 		return
-	# Match each VehicleWheel3D to its nearest wheel mesh (by world position).
-	for wnode in wheels:
-		var best: Node3D = null
-		var best_d := INF
-		for mesh in meshes:
-			if mesh.get_meta("_taken", false):
-				continue
-			var d: float = wnode.global_position.distance_to((mesh as Node3D).global_position)
-			if d < best_d:
-				best_d = d
-				best = mesh
-		if best:
-			best.set_meta("_taken", true)
-			var keep := best.global_transform
-			best.get_parent().remove_child(best)
-			wnode.add_child(best)
-			best.global_transform = keep   # keep its world placement under the wheel node
+	var car_basis := global_transform.basis
+	for mi in meshes:
+		var center: Vector3 = (mi as Node3D).global_position
+		# radius ~ half the wheel's world height (for a plausible roll rate)
+		var world_aabb: AABB = (mi as Node3D).global_transform * (mi as MeshInstance3D).get_aabb()
+		var radius: float = maxf(world_aabb.size.y * 0.5, 0.1)
+		var steer_pivot := Node3D.new()
+		add_child(steer_pivot)
+		steer_pivot.global_position = center
+		steer_pivot.global_transform.basis = car_basis     # align to car axes
+		var spin := Node3D.new()
+		steer_pivot.add_child(spin)
+		var keep := (mi as Node3D).global_transform
+		(mi as Node3D).get_parent().remove_child(mi)
+		spin.add_child(mi)
+		(mi as Node3D).global_transform = keep             # unchanged look
+		var is_front: bool = to_local(center).z > 0.0       # car forward is +Z
+		_wheel_vis.append({"steer": steer_pivot, "spin": spin, "front": is_front, "radius": radius})
+
+# Roll all wheels with forward speed; steer the front pair with the wheels' angle.
+func _spin_wheels(delta: float) -> void:
+	if _wheel_vis.is_empty():
+		return
+	var fwd_speed: float = linear_velocity.dot(global_transform.basis.z)   # +Z is forward
+	for w in _wheel_vis:
+		var spin_delta: float = (fwd_speed / w["radius"]) * delta
+		(w["spin"] as Node3D).rotate_object_local(Vector3.RIGHT, spin_delta)
+		if w["front"]:
+			(w["steer"] as Node3D).rotation.y = steering
 
 func _model_aabb(root: Node3D) -> AABB:
 	var out := AABB()
@@ -331,6 +342,8 @@ func _physics_process(delta: float) -> void:
 	if global_position.y < -20.0:
 		_recover()
 		return
+
+	_spin_wheels(delta)   # roll/steer the visual wheels (harmless if none)
 
 	if _driver == null:
 		# Parked: hold it in place so it doesn't creep on the gentle slopes.
