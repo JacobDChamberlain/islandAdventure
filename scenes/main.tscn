@@ -21,7 +21,7 @@
 [ext_resource type="PackedScene" uid="uid://c0coinmesh01" path="res://scenes/coin_mesh.tscn" id="19_coinmesh"]
 [ext_resource type="PackedScene" uid="uid://c0npc000001" path="res://scenes/npc.tscn" id="20_npc"]
 [ext_resource type="PackedScene" uid="uid://c0portal0001" path="res://scenes/portal.tscn" id="21_portal"]
-[ext_resource type="AudioStream" uid="uid://b0n4xxtgkg0uo" path="res://assets/audio/Nightlife.mp3" id="22_music"]
+[ext_resource type="AudioStream" uid="uid://bayfbhgpkmffx" path="res://assets/audio/D Song.mp3" id="22_music"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.32, 0.58, 0.9, 1)
