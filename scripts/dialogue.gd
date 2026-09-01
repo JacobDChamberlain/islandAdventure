@@ -15,6 +15,13 @@ var _lines: Array = []
 var _idx: int = 0
 var _opened_frame: int = -1   # so the E that opens the box doesn't also advance it
 
+# Typewriter reveal + GBA-style speech blips.
+const REVEAL_SPEED := 38.0     # characters per second
+var _revealing: bool = false
+var _reveal_chars: float = 0.0
+var _prev_visible: int = 0
+var _since_blip: int = 0
+
 func _ready() -> void:
 	panel.visible = false
 
@@ -28,9 +35,41 @@ func start(speaker: String, lines: Array) -> void:
 	panel.visible = true
 
 func _show_current() -> void:
-	body_label.text = str(_lines[_idx]) if _idx < _lines.size() else ""
+	var line: String = str(_lines[_idx]) if _idx < _lines.size() else ""
+	body_label.text = line
+	body_label.visible_characters = 0
+	_reveal_chars = 0.0
+	_prev_visible = 0
+	_since_blip = 0
+	_revealing = line.length() > 0
+
+func _process(delta: float) -> void:
+	if not active or not _revealing:
+		return
+	var full := body_label.text.length()
+	_reveal_chars += REVEAL_SPEED * delta
+	var vis: int = mini(int(_reveal_chars), full)
+	if vis > _prev_visible:
+		var text := body_label.text
+		for i in range(_prev_visible, vis):
+			var ch := text[i]
+			if ch != " " and ch != "\n" and ch != "\t":
+				_since_blip += 1
+				if _since_blip >= 2:   # a blip every couple of letters
+					_since_blip = 0
+					Sfx.speak()
+		_prev_visible = vis
+		body_label.visible_characters = vis
+	if vis >= full:
+		_revealing = false
+		body_label.visible_characters = -1   # show the whole line
 
 func advance() -> void:
+	if _revealing:
+		# First press finishes the line instantly instead of advancing.
+		body_label.visible_characters = -1
+		_revealing = false
+		return
 	_idx += 1
 	if _idx >= _lines.size():
 		_close()

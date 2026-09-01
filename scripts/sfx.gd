@@ -23,6 +23,7 @@ var _jump: Array[AudioStream] = []
 var _weird: Array[AudioStream] = []
 var _ui_move: Array[AudioStream] = []
 var _ui_select: Array[AudioStream] = []
+var _speak: Array[AudioStream] = []   # tiny blip, pitched per letter for NPC "speech"
 
 var _players: Array[AudioStreamPlayer] = []
 var _next: int = 0
@@ -31,7 +32,7 @@ func _ready() -> void:
 	_stomp = _variants(IMPACT + "impactSoft_heavy")
 	_hit = _variants(IMPACT + "impactPunch_heavy")
 	_hurt = _variants(IMPACT + "impactWood_heavy")
-	_artifact = _one(INTERFACE + "select_003.ogg")
+	_artifact = _one("res://assets/audio/artifact_sound_bell.wav")
 	# Exotic Matter gets a distinct, sci-fi "special" chime.
 	_exotic = _variants(SCIFI + "forceField")
 	if _exotic.is_empty():
@@ -44,6 +45,7 @@ func _ready() -> void:
 		_weird.append_array(_variants(SCIFI + base))
 	_ui_move = _one(INTERFACE + "tick_001.ogg")
 	_ui_select = _one(INTERFACE + "select_004.ogg")
+	_speak = _one(INTERFACE + "select_002.ogg")
 	for i in 8:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
@@ -105,6 +107,17 @@ func _play(bank: Array[AudioStream], volume_db: float, pitch_var: float) -> void
 func stomp() -> void: _play(_stomp, 0.0, 0.15)
 func hit() -> void: _play(_hit, 1.0, 0.18)
 func artifact() -> void: _play(_artifact, -3.0, 0.1)
+
+# One chittery blip, played per letter as the NPC's text types out (GBA-style).
+func speak() -> void:
+	if _speak.is_empty():
+		return
+	var p := _players[_next]
+	_next = (_next + 1) % _players.size()
+	p.stream = _speak[0]
+	p.volume_db = -9.0
+	p.pitch_scale = randf_range(1.35, 2.0)   # high + varied = chittery "voice"
+	p.play()
 func exotic() -> void: _play(_exotic, -2.0, 0.08)
 func coin() -> void: _play(_coin, -6.0, 0.18)
 func hurt() -> void: _play(_hurt, 1.0, 0.12)
