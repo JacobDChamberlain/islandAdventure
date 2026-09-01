@@ -176,6 +176,11 @@ func _build_city() -> void:
 	]
 	var tree_xf: Array[Transform3D] = []
 	var tree := _make_tree()
+	# Meshy plants (static via MultiMesh) replace most park trees.
+	var plant1 := _plant_mesh("res://assets/models/plant_1.glb")
+	var plant2 := _plant_mesh("res://assets/models/plant_2.glb")
+	var plant1_xf: Array[Transform3D] = []
+	var plant2_xf: Array[Transform3D] = []
 
 	var n := int(extent / _pitch())
 	var rim := extent - block_size   # leave the outermost ring clear of buildings
@@ -188,7 +193,7 @@ func _build_city() -> void:
 			if Vector2(cx, cz).length() < plaza_radius:
 				continue                                  # keep the spawn plaza open
 			if _block_is_park(ix, iz):
-				_scatter_park_trees(ix, iz, cx, cz, tree_xf)
+				_scatter_park_trees(ix, iz, cx, cz, tree_xf, plant1_xf, plant2_xf)
 				continue
 
 			var floors := _building_floors(ix, iz)
@@ -219,6 +224,10 @@ func _build_city() -> void:
 	for band in bands:
 		_commit_multimesh(unit_box, band["xf"], band["color"])
 	_commit_multimesh(tree, tree_xf, Color.WHITE, false)  # trees carry their own vertex colors
+	if plant1:
+		_commit_multimesh(plant1, plant1_xf, Color.WHITE, false)
+	if plant2:
+		_commit_multimesh(plant2, plant2_xf, Color.WHITE, false)
 
 # Curbs ringing each block edge (= the road edges). They're shallow RAMP/speed-bump
 # prisms (triangular cross-section), car-only collision, so even a low-riding car
@@ -276,17 +285,51 @@ func _curb_prism(px: float, pz: float, along_x: bool, shape: ConvexPolygonShape3
 	add_child(body)
 	out.append(Transform3D(basis, pos))
 
-func _scatter_park_trees(ix: int, iz: int, cx: float, cz: float, out: Array[Transform3D]) -> void:
+# Fill a park block: mostly scattered plants, with the occasional tree.
+func _scatter_park_trees(ix: int, iz: int, cx: float, cz: float,
+		tree_out: Array[Transform3D], p1_out: Array[Transform3D], p2_out: Array[Transform3D]) -> void:
 	var half := block_size * 0.5 - 3.0
-	for k in 5:
+	for k in 8:
 		var ox := (_hash01(ix * 31 + k, iz, 21) - 0.5) * 2.0 * half
 		var oz := (_hash01(ix, iz * 31 + k, 23) - 0.5) * 2.0 * half
 		var px := cx + ox
 		var pz := cz + oz
-		var s := lerpf(0.9, 1.7, _hash01(ix + k, iz - k, 27))
-		var b := Basis(Vector3.UP, _hash01(k, ix + iz, 29) * TAU).scaled(Vector3(s, s, s))
-		out.append(Transform3D(b, Vector3(px, height_at(px, pz), pz)))
-		_add_trunk_collision(px, pz, s)
+		var yaw := _hash01(k, ix + iz, 29) * TAU
+		var pick := _hash01(k, ix + iz, 41)
+		if pick < 0.12:   # ~12% keep a procedural tree (with a trunk collider)
+			var s := lerpf(0.9, 1.7, _hash01(ix + k, iz - k, 27))
+			var b := Basis(Vector3.UP, yaw).scaled(Vector3(s, s, s))
+			tree_out.append(Transform3D(b, Vector3(px, height_at(px, pz), pz)))
+			_add_trunk_collision(px, pz, s)
+		else:             # plants (real trees) — tiered sizes, with colliders
+			var tier := _hash01(ix + k, iz + k, 43)
+			var s: float
+			if tier < 0.7:
+				s = lerpf(2.5, 4.5, _hash01(ix + k, iz - k, 27))   # medium (~4-8m)
+			elif tier < 0.95:
+				s = lerpf(5.0, 8.0, _hash01(ix - k, iz + k, 47))   # big (~8.5-13.5m)
+			else:
+				s = lerpf(10.0, 15.0, _hash01(k, ix * iz, 53))     # massive (~17-25m)
+			var b := Basis(Vector3.UP, yaw).scaled(Vector3(s, s, s))
+			var xf := Transform3D(b, Vector3(px, height_at(px, pz), pz))
+			if pick < 0.56:
+				p1_out.append(xf)
+			else:
+				p2_out.append(xf)
+			_add_plant_collision(px, pz, s)
+
+# Pull the static mesh out of a (possibly rigged) GLB so it can be MultiMesh'd.
+func _plant_mesh(path: String) -> Mesh:
+	var scene := load(path) as PackedScene
+	if scene == null:
+		return null
+	var inst := scene.instantiate()
+	var out: Mesh = null
+	for c in inst.find_children("*", "MeshInstance3D", true, false):
+		out = (c as MeshInstance3D).mesh
+		break
+	inst.free()
+	return out
 
 # A thin static collider on each tree trunk so the car (and player) can't drive
 # straight through — bumps/stops on contact instead.
@@ -299,6 +342,18 @@ func _add_trunk_collision(px: float, pz: float, s: float) -> void:
 	cs.shape = shape
 	body.add_child(cs)
 	body.position = Vector3(px, height_at(px, pz) + 2.0 * s, pz)
+	add_child(body)
+
+# Trunk collider for a scattered plant (the ~1.7m mesh scaled by s).
+func _add_plant_collision(px: float, pz: float, s: float) -> void:
+	var body := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	var shape := CylinderShape3D.new()
+	shape.radius = 0.25 * s
+	shape.height = 1.7 * s
+	cs.shape = shape
+	body.add_child(cs)
+	body.position = Vector3(px, height_at(px, pz) + 0.85 * s, pz)
 	add_child(body)
 
 func _commit_multimesh(mesh: Mesh, xforms: Array[Transform3D], color: Color, colorize: bool = true) -> void:

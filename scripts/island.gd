@@ -127,14 +127,42 @@ func _build_foliage() -> void:
 	trunk_col.height = 4.0
 	var rock_col := SphereShape3D.new()
 	rock_col.radius = 0.6
+	# Meshy plant models (rigged, but rendered static via MultiMesh) replace most trees.
+	var plant1 := _plant_mesh("res://assets/models/plant_1.glb")
+	var plant2 := _plant_mesh("res://assets/models/plant_2.glb")
 	#         mesh,     count,  min_h, max_h, max_slope, s_min, s_max, y_off, rng, shadows, col_shape, col_offset
-	_scatter(tree,         75, 1.8, 11.0, 1.3, 0.9, 1.9, 0.0, rng, true, trunk_col, Vector3(0, 2.0, 0))
-	_scatter(tree,         11, 1.8,  9.0, 1.0, 2.6, 4.0, 0.0, rng, true, trunk_col, Vector3(0, 2.0, 0))
+	_scatter(tree,          8, 1.8, 11.0, 1.3, 0.9, 1.9, 0.0, rng, true, trunk_col, Vector3(0, 2.0, 0))
+	_scatter(tree,          2, 1.8,  9.0, 1.0, 2.6, 4.0, 0.0, rng, true, trunk_col, Vector3(0, 2.0, 0))
+	# Plants are actually trees — scatter them big, in tiers, with trunk colliders
+	# (the ~1.7m mesh scaled up). Collider offset/size scale with each instance.
+	var plant_col := CylinderShape3D.new()
+	plant_col.radius = 0.25
+	plant_col.height = 1.7
+	var pcol_off := Vector3(0, 0.85, 0)
+	for p in [plant1, plant2]:
+		if p == null:
+			continue
+		_scatter(p, 10, 1.8, 11.0, 1.6, 2.8, 5.0,  0.0, rng, true, plant_col, pcol_off)  # medium (~5-8.5m)
+		_scatter(p,  4, 1.8, 11.0, 1.4, 6.0, 9.0,  0.0, rng, true, plant_col, pcol_off)  # big (~10-15m)
+		_scatter(p,  2, 1.8,  9.0, 1.0, 13.0, 19.0, 0.0, rng, true, plant_col, pcol_off) # FUCKING MASSIVE (~22-32m)
 	_scatter(_make_bush(), 300, 1.2, 12.0, 3.0, 0.6, 1.3, 0.0, rng)
 	_scatter(_make_rock(), 150, 0.6, 20.0, 6.0, 0.5, 1.9, -0.2, rng, true, rock_col, Vector3(0, 0.3, 0))
 	_scatter(_make_grass(),1300, 1.2, 9.0, 2.5, 0.6, 1.4, 0.0, rng, false)   # grass: no shadows
 
-func _scatter(mesh: ArrayMesh, count: int, min_h: float, max_h: float,
+# Pull the static mesh out of a (possibly rigged) GLB so it can be MultiMesh'd.
+func _plant_mesh(path: String) -> Mesh:
+	var scene := load(path) as PackedScene
+	if scene == null:
+		return null
+	var inst := scene.instantiate()
+	var out: Mesh = null
+	for c in inst.find_children("*", "MeshInstance3D", true, false):
+		out = (c as MeshInstance3D).mesh
+		break
+	inst.free()
+	return out
+
+func _scatter(mesh: Mesh, count: int, min_h: float, max_h: float,
 		max_slope: float, s_min: float, s_max: float, y_off: float,
 		rng: RandomNumberGenerator, cast_shadow: bool = true,
 		col_shape: Shape3D = null, col_offset: Vector3 = Vector3.ZERO) -> void:
