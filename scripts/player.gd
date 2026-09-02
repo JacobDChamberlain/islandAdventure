@@ -195,8 +195,12 @@ func _aim_ray() -> Dictionary:
 	q.exclude = [get_rid()]
 	return get_world_3d().direct_space_state.intersect_ray(q)
 
+# Grapple works if the scene grants it (can_grapple) OR it's been bought (persists).
+func _grapple_enabled() -> bool:
+	return can_grapple or Game.has_grapple
+
 func _fire_grapple() -> void:
-	if not can_grapple or _grappling or _attacking or Dialogue.active or Game.cinematic:
+	if not _grapple_enabled() or _grappling or _attacking or Dialogue.active or Game.cinematic:
 		return
 	var hit := _aim_ray()
 	if hit.is_empty():
@@ -295,7 +299,7 @@ func _update_rope() -> void:
 func _update_reticle() -> void:
 	if _reticle == null:
 		return
-	var show := can_grapple and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not Dialogue.active and not Game.cinematic
+	var show := _grapple_enabled() and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not Dialogue.active and not Game.cinematic
 	_reticle.visible = show
 	if not show:
 		return

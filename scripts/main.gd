@@ -28,6 +28,11 @@ func _ready() -> void:
 	for e in get_tree().get_nodes_in_group("enemy"):
 		_register_enemy(e)
 
+	# Fade the island music in over 5s (it starts silent at -40 dB).
+	var music := get_node_or_null("Music") as AudioStreamPlayer
+	if music:
+		create_tween().tween_property(music, "volume_db", -5.0, 5.0)
+
 func _process(delta: float) -> void:
 	_tod = fposmod(_tod + delta / day_length, 1.0)
 	_update_day_night()

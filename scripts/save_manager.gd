@@ -40,6 +40,7 @@ func save_to_slot(slot: int) -> void:
 		"exotic": Game.exotic_matter,
 		"coins": Game.coins,
 		"quest": Game.quest_active,
+		"has_grapple": Game.has_grapple,
 	}
 	var f := FileAccess.open(_slot_path(slot), FileAccess.WRITE)
 	if f:
@@ -74,6 +75,7 @@ func apply_pending() -> void:
 	Game.exotic_matter = int(data.get("exotic", 0))
 	Game.coins = int(data.get("coins", 0))
 	Game.quest_active = bool(data.get("quest", false))
+	Game.has_grapple = bool(data.get("has_grapple", false))
 	Game.collected_artifacts = data.get("collected", [])
 	for artifact in tree.get_nodes_in_group("artifact"):
 		if String(artifact.name) in Game.collected_artifacts:

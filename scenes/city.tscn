@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=3 uid="uid://c0city000001"]
+[gd_scene load_steps=28 format=3 uid="uid://c0city000001"]
 
 [ext_resource type="Script" uid="uid://cx1j2tkv7s33g" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" uid="uid://bpsjqrqpvx2nr" path="res://scripts/player.gd" id="2_player"]
@@ -22,6 +22,8 @@
 [ext_resource type="PackedScene" uid="uid://c0portal0001" path="res://scenes/portal.tscn" id="21_portal"]
 [ext_resource type="PackedScene" uid="uid://c0vehicle0001" path="res://scenes/vehicle.tscn" id="22_vehicle"]
 [ext_resource type="AudioStream" uid="uid://bfhfpee3u2v6w" path="res://assets/audio/Existense Is Punishment.mp3" id="23_music"]
+[ext_resource type="PackedScene" uid="uid://c0shop000001" path="res://scenes/shop.tscn" id="24_shop"]
+[ext_resource type="PackedScene" uid="uid://c0shopcat0001" path="res://scenes/cat.tscn" id="25_cat"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.32, 0.58, 0.9, 1)
@@ -105,7 +107,6 @@ script = ExtResource("9_city")
 [node name="Player" type="CharacterBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, 18)
 script = ExtResource("2_player")
-can_grapple = true
 speed = 13.0
 jump_velocity = 19.0
 gravity = 60.0
@@ -264,6 +265,14 @@ label_text = "ISLAND"
 
 [node name="Vehicle" parent="." instance=ExtResource("22_vehicle")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 6)
+
+[node name="Shop" parent="." instance=ExtResource("24_shop")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28, 20, 9.7)
+
+[node name="ShopCat" parent="." instance=ExtResource("25_cat")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28, 20, 5.5)
+model_scale = 320.0
+model_yaw_offset_deg = 0.0
 
 [node name="UI" type="CanvasLayer" parent="."]
 

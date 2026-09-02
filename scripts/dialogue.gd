@@ -5,15 +5,18 @@ extends CanvasLayer
 # react to `finished`.
 
 signal finished
+signal confirmed(accepted: bool)   # emitted by ask() when the player picks Yes/No
 
 @onready var panel: Control = $Panel
 @onready var speaker_label: Label = $Panel/Margin/VBox/Speaker
 @onready var body_label: Label = $Panel/Margin/VBox/Body
+@onready var hint_label: Label = $Panel/Margin/VBox/Hint
 
 var active: bool = false
 var _lines: Array = []
 var _idx: int = 0
 var _opened_frame: int = -1   # so the E that opens the box doesn't also advance it
+var _confirm: bool = false    # last line is a Yes/No question (ask())
 
 # Typewriter reveal + GBA-style speech blips.
 const REVEAL_SPEED := 38.0     # characters per second
@@ -26,6 +29,15 @@ func _ready() -> void:
 	panel.visible = false
 
 func start(speaker: String, lines: Array) -> void:
+	_confirm = false
+	_begin(speaker, lines)
+
+# Like start(), but the LAST line is a Yes/No question: emits confirmed(bool).
+func ask(speaker: String, lines: Array) -> void:
+	_confirm = true
+	_begin(speaker, lines)
+
+func _begin(speaker: String, lines: Array) -> void:
 	_lines = lines
 	_idx = 0
 	active = true
@@ -42,6 +54,15 @@ func _show_current() -> void:
 	_prev_visible = 0
 	_since_blip = 0
 	_revealing = line.length() > 0
+	_update_hint()
+
+func _update_hint() -> void:
+	if hint_label == null:
+		return
+	if _confirm and _idx == _lines.size() - 1:
+		hint_label.text = "[E] Yes      [Q] No"
+	else:
+		hint_label.text = "Press Enter to continue"
 
 func _process(delta: float) -> void:
 	if not active or not _revealing:
@@ -70,6 +91,8 @@ func advance() -> void:
 		body_label.visible_characters = -1
 		_revealing = false
 		return
+	if _confirm and _idx == _lines.size() - 1:
+		return   # on the question line: wait for Yes/No in _input
 	_idx += 1
 	if _idx >= _lines.size():
 		_close()
@@ -81,10 +104,27 @@ func _close() -> void:
 	panel.visible = false
 	finished.emit()
 
+func _finish_confirm(accepted: bool) -> void:
+	_confirm = false
+	active = false
+	panel.visible = false
+	confirmed.emit(accepted)
+
 func _input(event: InputEvent) -> void:
 	if not active or Engine.get_frames_drawn() == _opened_frame:
 		return
-	if event is InputEventKey and event.pressed and not event.echo \
-			and event.physical_keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_E, KEY_SPACE]:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	var kc: int = event.physical_keycode
+	# On a confirm's fully-revealed question line: E/Enter/Y = Yes, Q/Esc/N = No.
+	if _confirm and not _revealing and _idx == _lines.size() - 1:
+		if kc in [KEY_E, KEY_ENTER, KEY_KP_ENTER, KEY_Y, KEY_SPACE]:
+			_finish_confirm(true)
+			get_viewport().set_input_as_handled()
+		elif kc in [KEY_Q, KEY_N, KEY_ESCAPE, KEY_BACKSPACE]:
+			_finish_confirm(false)
+			get_viewport().set_input_as_handled()
+		return
+	if kc in [KEY_ENTER, KEY_KP_ENTER, KEY_E, KEY_SPACE]:
 		advance()
 		get_viewport().set_input_as_handled()
