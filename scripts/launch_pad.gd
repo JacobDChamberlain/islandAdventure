@@ -4,6 +4,7 @@ extends Area3D
 @export var strength: float = 40.0
 
 func _ready() -> void:
+	add_to_group("launch_pad")   # so Biscuit (a Node3D, not a body) can find them
 	body_entered.connect(_on_body_entered)
 	await get_tree().process_frame
 	var island := get_tree().get_first_node_in_group("island")

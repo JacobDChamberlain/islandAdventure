@@ -10,10 +10,28 @@ extends VehicleBody3D
 @export var steer_speed: float = 3.0          # how fast the wheels turn to target
 @export var brake_force: float = 18.0         # handbrake + braking when reversing direction
 @export var coast_brake: float = 2.5          # light auto-brake when off the throttle
-@export var cam_back: float = 9.0             # chase camera distance behind
-@export var cam_up: float = 4.0               # chase camera height
-@export var cam_look_ahead: float = 1.2       # look at this height on the car
+@export var cam_back: float = 10.5            # chase camera distance behind
+@export var cam_up: float = 5.3               # chase camera height
+@export var cam_look_ahead: float = 2.3       # look at this height on the car (higher = tilted back)
+@export var cam_recenter_delay: float = 0.35  # idle seconds before the view drifts behind the car
 @export var mouse_orbit: float = 0.005        # camera orbit per mouse pixel while driving
+# Vertical look while driving. true = push the mouse forward and the view tilts
+# UP; false = the original behaviour, where forward tilted it down. This also
+# flips GUN AIMING from the car, since the blaster aims down this same chase
+# camera's centre ray.
+@export var invert_look_y: bool = true
+# How far the view can tilt. Negative = looking up past the car. Aiming high
+# needs BOTH: room in the clamp, and cam_look_lift below — the chase camera
+# always looks AT the car, so without lifting its look target, tilting "up" just
+# sinks the camera instead of raising where the gun points.
+@export var cam_pitch_min: float = -1.15
+@export var cam_pitch_max: float = 0.7
+@export var cam_look_lift: float = 13.0   # metres the look target rises at full up-tilt
+@export var cam_min_height: float = 1.3   # never let the camera sink below the car
+# Vertical look is its own sensitivity: the aim angle swings fastest around the
+# horizon and tapers off high up, so sharing the horizontal speed makes the first
+# part of a look-up feel twitchy.
+@export var mouse_orbit_y: float = 0.0032
 @export var air_level_strength: float = 6.0   # how hard the car self-rights in the air
 @export var air_spin_damp: float = 0.04        # airborne angular-velocity retention per frame (lower = stops spin faster)
 @export var yaw_recover: float = 4.0           # extra yaw damping on the ground when not steering
@@ -51,6 +69,7 @@ var _upside_timer: float = 0.0
 @export_file("*.wav", "*.ogg") var engine_sound: String = "res://assets/audio/engine_idle_1.wav"
 @export var screech_start: float = 0.08   # skip the silent lead-in of the screech samples
 var _engine: AudioStreamPlayer3D
+var _lamp: OmniLight3D          # mirrors the hero's lantern while you drive
 var _skid: AudioStreamPlayer3D          # tyre screech one-shots
 var _impact: AudioStreamPlayer3D        # crash / splat one-shots
 var _screeches: Array = []
@@ -83,6 +102,15 @@ func _ready() -> void:
 		_level_music = scene.get_node_or_null("Music") as AudioStreamPlayer
 
 func _setup_audio() -> void:
+	_lamp = OmniLight3D.new()
+	_lamp.light_color = Color(1.0, 0.86, 0.6)
+	_lamp.light_energy = 9.0
+	_lamp.omni_range = 36.0
+	_lamp.omni_attenuation = 0.8
+	_lamp.shadow_enabled = true
+	_lamp.position = Vector3(0.0, 2.2, 0.0)   # above the roof, clear of the body
+	_lamp.visible = false
+	add_child(_lamp)
 	_engine = AudioStreamPlayer3D.new()
 	_engine.stream = _make_looping(load(engine_sound))
 	_engine.unit_size = 12.0
@@ -230,20 +258,38 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Mouse orbit while driving.
 	if _driver != null and event is InputEventMouseMotion \
 			and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		_cam_yaw = clampf(_cam_yaw - event.relative.x * mouse_orbit, -PI * 0.85, PI * 0.85)
-		_cam_pitch = clampf(_cam_pitch - event.relative.y * mouse_orbit, -0.5, 0.65)
-		_mouse_idle = 0.0
+		apply_look(event.relative)
 		return
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
 	if event.physical_keycode == KEY_E:
 		if _driver == null:
-			if _near and not Dialogue.active and not Game.cinematic:
+			if _near and not Dialogue.active and not Game.cinematic and _wins_interact(_near):
 				_board(_near)
 		else:
 			_unboard()
 	elif event.physical_keycode == KEY_R and _driver != null:
 		_recover()
+
+# When Biscuit is at your heel her talk zone overlaps the car door. Nearest
+# interactable wins E — the rule GTA/RDR-likes use — so walking up to the car
+# and pressing E always gets you in, even with a cat underfoot.
+func _wins_interact(player: Node3D) -> bool:
+	var mine := global_position.distance_to(player.global_position)
+	for g in ["vehicle", "cat", "npc"]:
+		for other in get_tree().get_nodes_in_group(g):
+			if other == self or not is_instance_valid(other) or not (other is Node3D):
+				continue
+			if other.global_position.distance_to(player.global_position) < mine - 0.01:
+				return false
+	return true
+
+# Split out of _unhandled_input so the look maths can be exercised directly.
+func apply_look(rel: Vector2) -> void:
+	_cam_yaw = clampf(_cam_yaw - rel.x * mouse_orbit, -PI * 0.85, PI * 0.85)
+	var pitch_dir := 1.0 if invert_look_y else -1.0
+	_cam_pitch = clampf(_cam_pitch + pitch_dir * rel.y * mouse_orbit_y, cam_pitch_min, cam_pitch_max)
+	_mouse_idle = 0.0
 
 func _board(player: Node) -> void:
 	_driver = player
@@ -337,6 +383,16 @@ func _forward() -> Vector3:
 	return global_transform.basis.z
 
 func _physics_process(delta: float) -> void:
+	# Belt-and-braces: the city track is a driving-only track, so it must never be
+	# audible on foot no matter which way you left the car (Esc, death, debug jump).
+	if _level_music != null and _music_started:
+		_level_music.stream_paused = (_driver == null)
+	# The hero's lantern is hidden with him inside the car, so the CAR carries the
+	# light instead — press L while driving and the headlamp comes on.
+	if _lamp != null:
+		_lamp.visible = _driver != null and _driver.has_method("lantern_switched_on") \
+			and _driver.lantern_switched_on()
+
 	# Safety net: if the car ever falls through the world, drop it back on the road
 	# (works whether or not anyone's driving — R only works while seated).
 	if global_position.y < -20.0:
@@ -463,11 +519,25 @@ func _update_audio(braking: bool) -> void:
 func _update_cam(delta: float) -> void:
 	# Let mouse orbit the cam; when the mouse goes idle, ease back behind the car.
 	_mouse_idle += delta
-	if _mouse_idle > 0.35:
+	# Don't drag the view back behind the car while the blaster is out — you're
+	# aiming, and having the camera creep back to centre fights you.
+	var aiming := false
+	if _driver != null and "weapon" in _driver and _driver.weapon != null:
+		aiming = _driver.weapon.drawn and Game.has_gun
+	if _mouse_idle > cam_recenter_delay and not aiming:
 		_cam_yaw = lerpf(_cam_yaw, 0.0, 1.0 - pow(0.02, delta))
 		_cam_pitch = lerpf(_cam_pitch, 0.0, 1.0 - pow(0.02, delta))
 	var dir := Basis(Vector3.UP, _cam_yaw) * _forward()
-	var target := global_position - dir * cam_back + Vector3.UP * (cam_up + _cam_pitch * 6.0)
+	# Floor the camera height so a full up-tilt can't bury it in the road. Eased
+	# into over a band rather than a hard max(), which put a visible kink in how
+	# fast the view rises just as it reached the floor.
+	var raw_h: float = cam_up + _cam_pitch * 6.0
+	var band := 1.6
+	var cam_h: float = raw_h
+	if raw_h < cam_min_height + band:
+		var t: float = clampf((raw_h - cam_min_height) / band, 0.0, 1.0)
+		cam_h = cam_min_height + band * smoothstep(0.0, 1.0, t)
+	var target := global_position - dir * cam_back + Vector3.UP * cam_h
 	# Keep the camera out of walls/buildings.
 	var from := global_position + Vector3.UP * 1.0
 	var q := PhysicsRayQueryParameters3D.create(from, target)
@@ -481,6 +551,8 @@ func _update_cam(delta: float) -> void:
 	if target.distance_to(global_position) < 2.5:
 		target = global_position + (target - global_position).normalized() * 2.5 + Vector3.UP * 0.5
 	cam.global_position = cam.global_position.lerp(target, 1.0 - pow(0.0001, delta))
-	var look_target := global_position + Vector3.UP * cam_look_ahead
+	# Tilting up raises what the camera looks at, so the centre ray (and therefore
+	# the blaster) points high into the sky instead of just at the car's roof.
+	var look_target := global_position + Vector3.UP * (cam_look_ahead + maxf(0.0, -_cam_pitch) * cam_look_lift)
 	if cam.global_position.distance_to(look_target) > 0.05:
 		cam.look_at(look_target, Vector3.UP)

@@ -10,6 +10,16 @@ const INTERFACE := "res://assets/audio/kenney_interface-sounds/Audio/"
 const SCIFI := "res://assets/audio/kenney_sci-fi-sounds/Audio/"
 # Short, punchy sci-fi sounds used as the heads' "weird noises" (skips the long
 # engine/thruster drones).
+# --- Blaster tone. If the pews STILL read too high, drop SHOOT_PITCH (0.30 is
+# very sludgy) or swap SHOOT_BASE for "lowFrequency_explosion" / "spaceEngineLow".
+const SHOOT_BASE := "laserLarge"      # NOT laserRetro — that one is chirpy by nature
+const SHOOT_PITCH := 0.42             # 1.0 = as recorded; lower = deeper
+const SHOOT_HEAVY_BASE := "lowFrequency_explosion"
+const SHOOT_HEAVY_PITCH := 0.85
+# Volumes in dB (0 = the sample as recorded, +6 ~ twice as loud).
+const SHOOT_DB := -9.0
+const SHOOT_HEAVY_DB := 2.0           # the heavy slug should land like a cannon
+
 const WEIRD_BASES := ["forceField", "laserRetro", "laserSmall", "slime", "impactMetal"]
 
 var _stomp: Array[AudioStream] = []
@@ -23,6 +33,9 @@ var _jump: Array[AudioStream] = []
 var _weird: Array[AudioStream] = []
 var _ui_move: Array[AudioStream] = []
 var _ui_select: Array[AudioStream] = []
+var _shoot: Array[AudioStream] = []   # blaster pew (pitch-varied per shot)
+var _shoot_heavy: Array[AudioStream] = []
+var _dry: Array[AudioStream] = []     # out-of-ammo click
 var _speak: Array[AudioStream] = []   # tiny blip, pitched per letter for NPC "speech"
 
 var _players: Array[AudioStreamPlayer] = []
@@ -43,6 +56,10 @@ func _ready() -> void:
 	_jump = _variants(IMPACT + "impactSoft_medium")
 	for base in WEIRD_BASES:
 		_weird.append_array(_variants(SCIFI + base))
+	# Blaster: retro pews for pellets, a big thump for the heavy slug.
+	_shoot = _variants(SCIFI + SHOOT_BASE)
+	_shoot_heavy = _variants(SCIFI + SHOOT_HEAVY_BASE)
+	_dry = _one(INTERFACE + "tick_001.ogg")
 	_ui_move = _one(INTERFACE + "tick_001.ogg")
 	_ui_select = _one(INTERFACE + "select_004.ogg")
 	_speak = _one(INTERFACE + "select_002.ogg")
@@ -94,19 +111,21 @@ func _load_dir(dir_path: String) -> Array[AudioStream]:
 	d.list_dir_end()
 	return out
 
-func _play(bank: Array[AudioStream], volume_db: float, pitch_var: float) -> void:
+# `pitch_base` shifts the whole random window — the blaster sits well below 1.0
+# so rapid fire reads as a low "thump-thump" instead of chirpy squeaks.
+func _play(bank: Array[AudioStream], volume_db: float, pitch_var: float, pitch_base: float = 1.0) -> void:
 	if bank.is_empty():
 		return
 	var p := _players[_next]
 	_next = (_next + 1) % _players.size()
 	p.stream = bank[randi() % bank.size()]
 	p.volume_db = volume_db
-	p.pitch_scale = 1.0 + randf_range(-pitch_var, pitch_var)
+	p.pitch_scale = maxf(0.05, pitch_base + randf_range(-pitch_var, pitch_var))
 	p.play()
 
 func stomp() -> void: _play(_stomp, 0.0, 0.15)
 func hit() -> void: _play(_hit, 1.0, 0.18)
-func artifact() -> void: _play(_artifact, -3.0, 0.1)
+func artifact() -> void: _play(_artifact, -1.0, 0.1)   # nudged up a touch
 
 # One chittery blip, played per letter as the NPC's text types out (GBA-style).
 func speak() -> void:
@@ -123,6 +142,9 @@ func coin() -> void: _play(_coin, -6.0, 0.18)
 func hurt() -> void: _play(_hurt, 1.0, 0.12)
 func footstep() -> void: _play(_step, -9.0, 0.22)
 func jump() -> void: _play(_jump, -5.0, 0.1)
+func shoot() -> void: _play(_shoot, SHOOT_DB, 0.02, SHOOT_PITCH)   # deep, barely any wobble
+func shoot_heavy() -> void: _play(_shoot_heavy, SHOOT_HEAVY_DB, 0.03, SHOOT_HEAVY_PITCH)
+func dry_fire() -> void: _play(_dry, -14.0, 0.05)
 func ui_move() -> void: _play(_ui_move, -12.0, 0.05)
 func ui_select() -> void: _play(_ui_select, -16.0, 0.05)
 

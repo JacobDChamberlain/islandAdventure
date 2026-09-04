@@ -41,6 +41,9 @@ func save_to_slot(slot: int) -> void:
 		"coins": Game.coins,
 		"quest": Game.quest_active,
 		"has_grapple": Game.has_grapple,
+		"has_gun": Game.has_gun,
+		"ammo": Game.ammo,
+		"weapon_mode": Game.weapon_mode,
 	}
 	var f := FileAccess.open(_slot_path(slot), FileAccess.WRITE)
 	if f:
@@ -76,6 +79,10 @@ func apply_pending() -> void:
 	Game.coins = int(data.get("coins", 0))
 	Game.quest_active = bool(data.get("quest", false))
 	Game.has_grapple = bool(data.get("has_grapple", false))
+	if bool(data.get("has_gun", false)):
+		Game.grant_gun()   # via grant_gun so the level puts its blaster pickups out
+	Game.ammo = int(data.get("ammo", 0))
+	Game.set_weapon_mode(str(data.get("weapon_mode", "pellet")))
 	Game.collected_artifacts = data.get("collected", [])
 	for artifact in tree.get_nodes_in_group("artifact"):
 		if String(artifact.name) in Game.collected_artifacts:
@@ -86,4 +93,5 @@ func apply_pending() -> void:
 	Game.score_changed.emit(Game.score, Game.total_artifacts)
 	Game.exotic_changed.emit(Game.exotic_matter)
 	Game.coins_changed.emit(Game.coins)
+	Game.ammo_changed.emit(Game.ammo, Game.max_ammo)
 	Game.health_changed.emit(Game.health, Game.max_health)

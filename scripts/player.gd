@@ -125,6 +125,7 @@ var _saved_layer: int = 1
 var _saved_mask: int = 1
 var _rope: MeshInstance3D
 var _reticle: Label
+var weapon: Node3D          # the blaster (scripts/weapon.gd), built in code
 
 @onready var camera_pivot: Node3D = $CameraPivot
 @onready var camera: Camera3D = $CameraPivot/Camera3D
@@ -150,6 +151,7 @@ func _ready() -> void:
 	_setup_animation()
 	_setup_grapple_visuals()
 	_setup_lantern()
+	_setup_weapon()
 	_snap_to_ground()
 
 func _snap_to_ground() -> void:
@@ -230,7 +232,24 @@ func _toggle_lantern() -> void:
 func lantern_is_on() -> bool:
 	return _lantern_on and not _driving
 
+# The raw switch position, regardless of driving — the car mirrors this to put
+# the light on its own roof.
+func lantern_switched_on() -> bool:
+	return _lantern_on
+
+# L lives here rather than in _input because _input bails out while driving, and
+# the lantern should still toggle from the driver's seat.
+func _unhandled_input(event: InputEvent) -> void:
+	if Dialogue.active or Game.cinematic:
+		return
+	if event is InputEventKey and event.pressed and not event.echo \
+			and event.physical_keycode == KEY_L:
+		_toggle_lantern()
+
 func _process(delta: float) -> void:
+	# In _process, not _physics_process: the car switches physics off on the hero
+	# and we still want the crosshair while you're shooting from the driver's seat.
+	_update_reticle()
 	if not _lantern_on or _lantern == null:
 		return
 	# Gentle breathing so the glow feels alive instead of a flat spotlight.
@@ -239,6 +258,17 @@ func _process(delta: float) -> void:
 	_lantern.light_energy = lantern_energy * pulse
 	for s in _glow_slots:
 		s["glow"].emission_energy_multiplier = lantern_glow * pulse
+
+# --- Blaster -----------------------------------------------------------------
+
+func _setup_weapon() -> void:
+	weapon = load("res://scripts/weapon.gd").new()
+	weapon.name = "Weapon"
+	add_child(weapon)
+
+# True when the blaster is out, so melee and the crosshair can defer to it.
+func _gun_out() -> bool:
+	return weapon != null and weapon.is_active()
 
 # --- Grapple hook ------------------------------------------------------------
 # A rope (world-space line) + a center-screen crosshair, both built in code so
@@ -394,9 +424,13 @@ func _update_rope() -> void:
 func _update_reticle() -> void:
 	if _reticle == null:
 		return
-	var show := _grapple_enabled() and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not Dialogue.active and not Game.cinematic
+	var show := (_grapple_enabled() or _gun_out()) and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED \
+		and not Dialogue.active and not Game.cinematic
 	_reticle.visible = show
 	if not show:
+		return
+	if _gun_out():
+		_reticle.modulate = Color(1.0, 0.85, 0.45, 0.95) if Game.ammo > 0 else Color(1.0, 0.4, 0.4, 0.8)
 		return
 	var hot := _grappling or not _aim_ray().is_empty()
 	_reticle.modulate = Color(0.5, 1.0, 0.6, 0.95) if hot else Color(1, 1, 1, 0.5)
@@ -679,6 +713,8 @@ func _input(event: InputEvent) -> void:
 	# Mouse look: horizontal turns the whole body, vertical tilts only the camera.
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var sens := mouse_sensitivity * Settings.sensitivity
+		if weapon and weapon.scoped:
+			sens *= weapon.scope_sensitivity
 		rotate_y(-event.relative.x * sens)
 		camera_pivot.rotate_x(-event.relative.y * sens)
 		camera_pivot.rotation.x = clamp(camera_pivot.rotation.x, deg_to_rad(-70), deg_to_rad(80))
@@ -689,7 +725,8 @@ func _input(event: InputEvent) -> void:
 	# While playing (mouse captured): left click punches, right click kicks.
 	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			_attack("punch")
+			if not _gun_out():          # gun out = LMB shoots (weapon.gd polls the hold)
+				_attack("punch")
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			_attack("kick")
 		elif event.button_index == MOUSE_BUTTON_MIDDLE:
@@ -702,7 +739,6 @@ func _input(event: InputEvent) -> void:
 			KEY_G: _toggle_dance(anim_dance)
 			KEY_H: _toggle_dance(anim_dance2)
 			KEY_Q: _fire_grapple()
-			KEY_L: _toggle_lantern()
 	# Jump on the moment Space is pressed (not while held), so double-jump works.
 	# Space while grappling lets go early (with the launch pop).
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE:
@@ -721,8 +757,6 @@ func _physics_process(delta: float) -> void:
 	# Count down invulnerability after a hit.
 	if _invuln > 0.0:
 		_invuln -= delta
-
-	_update_reticle()
 
 	# A scripted moment starting mid-swing cancels the grapple (no upward pop).
 	if (Dialogue.active or Game.cinematic) and _grappling:

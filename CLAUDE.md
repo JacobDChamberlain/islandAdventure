@@ -21,7 +21,15 @@ pkill -f "Godot.app/Contents/MacOS/Godot"; sleep 1
 "$GD" --headless --editor --quit-after 250 2>&1 | grep -iE "SCRIPT ERROR|ERROR|parse|invalid|shader" | grep -viE "Total|reimport|in use at exit"
 # 2) actually run a scene headlessly to catch runtime errors
 "$GD" --headless res://scenes/main.tscn --quit-after 200 2>&1 | grep -iE "SCRIPT ERROR|ERROR|Cannot|null instance"
+# 3) run the CITY too — it has the cat/shop, so main.tscn alone misses those scripts
+"$GD" --headless res://scenes/city.tscn --quit-after 200 2>&1 | grep -iE "SCRIPT ERROR|ERROR|Cannot"
 ```
+**The editor `--quit-after` pass does NOT catch every parse error** (it missed an
+undeclared variable in `cat.gd`). Only a scene that actually instantiates a script
+compiles it — so run BOTH scenes. For a stronger gate, compile each script alone
+(`--check-only --script res://scripts/X.gd`) and ignore the
+`Identifier not found: Game|Fx|Sfx|Settings|SaveManager|Dialogue|DebugMenu` noise,
+which is just autoloads being absent in that mode.
 "N resources still in use at exit" on headless quit is harmless (audio streams).
 Then relaunch the editor GUI for the user to playtest (run in background):
 `"$GD" --editor --path <project>`. I write code/files; the **user clicks Play (F5)**
@@ -127,6 +135,47 @@ and exposes **`height_at(x, z)`** — the source of truth for ground height.
   `died` so the level respawns them; neither drops loot, so scaring heads off a
   ledge can't be farmed. Drowning is island-only in practice — the city is dry
   ground everywhere — but falling off the world works in both.
+- **The blaster** (`weapon.gd`, a Node3D player.gd builds in code): bought from the
+  cat (`gun_price`), **1** draws/holsters, **hold LMB** streams visible pellets
+  (`bullet.gd`, also code-built — no .tscn), **Shift** scopes (FOV + look speed).
+  Pellets move by SWEPT RAYCAST, not Area3D overlap — at 44 m/s a pellet covers
+  more ground per frame than its own diameter (it would tunnel through thin
+  walls), and a ray reports the surface normal the `bouncy` upgrade bounces
+  off. Fire behaviour is entirely `weapon.gd MODES`
+  (`pellet`/`rapid`/`heavy`/`laser`/`bouncy`
+  — `laser` sets `beam: true` and holds a raycast beam instead of spawning
+  pellets, damaging on the mode's interval); a
+  `weapon_upgrade.gd` pickup just swaps `Game.weapon_mode`, so a new upgrade is a
+  new dictionary row. Ammo is per-level (`Game.starting_ammo` on `new_run`),
+  refilled by scattered `ammo_pickup.gd` crates or bought from the cat.
+  `main.gd _scatter_pickups()` places crates + upgrades procedurally on walkable
+  ground, so both levels get them with no scene edits. **You can shoot while
+  driving**: `weapon._rig()`/`_aim_camera()` switch to the car + its ChaseCam,
+  bullets ignore the `vehicle` group, and the crosshair updates from the player's
+  `_process` (the car disables his `_physics_process`).
+- **The shop** (`shop_menu.gd`, code-built CanvasLayer the cat spawns): talking to
+  Biscuit opens a selectable window — each row is a real `Button`, which is what
+  gives arrow-key focus movement, hover and clicking for free. `cat._stock()`
+  rebuilds the list after every purchase so prices/affordability stay honest.
+  Talking to her plays a greeting (zoomed-in dialogue) and then a 3-way menu:
+  **Enter shop** / **Take Biscuit for a walk** / **Leave**. The shop sells the
+  hook, the blaster, ammo, a full refill, and a **Standard Barrel** that strips a
+  weapon upgrade back to `pellet`.
+- **Taking Biscuit for a walk** (`cat.gd` `_following`): she trots at heel
+  (`follow_speed`/`follow_distance`, teleporting to catch up past
+  `follow_teleport_dist`) and hoovers up coins, Exotic Matter and ammo within
+  `fetch_radius`. She calls each pickup's public `collect()` — the same path
+  walking over it takes — so fetching can never drift from normal pickup
+  behaviour. Artifacts are excluded unless `fetch_artifacts` is on. Because the
+  menu lives on her, a walk also means a **portable shop**. She has **no
+  collision body** (plain Node3D moved by hand), so walls are found with a
+  forward raycast and the ground with a downward one — **not** `building_top_at`,
+  which is per-BLOCK (it reports a roof height across a whole block, pavement
+  included) and useless as a wall test. Avoidance is local only, so a
+  no-progress timer (`stuck_time`) teleports her to your heel rather than
+  pathfinding; launch pads fling her (`_check_launch_pads`, she can't trigger
+  their Area3D herself) and can't re-fire until she steps off — unless you're
+  stood by the pad too, in which case you can both keep bouncing.
 - **Night aggro**: enemies scale `detect_range`/`lose_range` by `night_detect_mult`
   and `chase_speed` by `night_speed_mult` whenever `Game.is_night` (see the
   `_detect_range()`/`_lose_range()`/`_chase_speed()` helpers in `enemy.gd`).
@@ -148,6 +197,12 @@ user's rigged head-bust `assets/models/nightmare.glb`. Raw zips are gitignored.
 - Scaling a CharacterBody3D node (the giant enemy) is fine, but ground-snap must use
   the world-space half-height (`model_height*0.5*scale.y`).
 - Save/load resets enemies to spawn (live enemy state isn't saved yet).
+- **Modal UI must respect two things**: `PauseLayer` is `layer = 10`, so a modal
+  has to sit BELOW it (a full-screen dim above it swallows the pause menu's
+  clicks — you can pause but not press anything), and `pause_menu.gd` grabs
+  `ui_cancel` in `_input`, so a modal must consume Esc in `_input` too and set
+  a flag (`Game.shop_open`) that pause_menu checks — otherwise Esc pauses the
+  game *behind* the modal instead of closing it.
 - **Never mutate the hero's imported material in place.** It ships with
   `emission_enabled = true` (black emission ADDed over an emissive texture) and
   `metallic = 1.0`; turning that emission off unmasks his specular and he reads as

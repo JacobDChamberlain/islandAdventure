@@ -52,10 +52,16 @@ func _process(delta: float) -> void:
 
 func _on_body_entered(body: Node3D) -> void:
 	if _armed and (body.is_in_group("player") or (body.is_in_group("vehicle") and Game.driving)):
-		Fx.poof(global_position, Color(0.75, 0.3, 1.0), 22, 1.1)
-		Sfx.exotic()
-		Game.collect_exotic()
-		queue_free()
+		collect()
+
+# Public so Biscuit can fetch it for you (see cat.gd).
+func collect() -> void:
+	if not _armed:
+		return
+	Fx.poof(global_position, Color(0.75, 0.3, 1.0), 22, 1.1)
+	Sfx.exotic()
+	Game.collect_exotic()
+	queue_free()
 
 # Auto-scale an imported Meshy model to `target` meters and center it on the
 # pickup's origin, so it spins/bobs about its middle no matter how it was exported.

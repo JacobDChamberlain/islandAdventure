@@ -40,6 +40,9 @@ func _ready() -> void:
 	Game.score_changed.connect(_on_score_changed)
 	Game.exotic_changed.connect(_on_exotic_changed)
 	Game.coins_changed.connect(_on_coins_changed)
+	_build_ammo_readout()
+	Game.ammo_changed.connect(_on_ammo_changed)
+	Game.weapon_mode_changed.connect(func(_m): _on_ammo_changed(Game.ammo, Game.max_ammo))
 	Game.artifact_collected.connect(_on_artifact_collected)
 	Game.exotic_collected.connect(_on_exotic_collected)
 	Game.health_changed.connect(_on_health_changed)
@@ -56,6 +59,7 @@ func _refresh() -> void:
 	_on_score_changed(Game.score, Game.total_artifacts)
 	_on_exotic_changed(Game.exotic_matter)
 	_on_coins_changed(Game.coins)
+	_on_ammo_changed(Game.ammo, Game.max_ammo)
 	_on_health_changed(Game.health, Game.max_health)
 	_on_lives_changed(Game.lives, Game.max_lives)
 
@@ -122,3 +126,80 @@ func _spawn_toast(text: String, color: Color) -> void:
 	t.tween_property(l, "modulate:a", 1.0, 0.12)
 	t.tween_property(l, "modulate:a", 0.0, 0.5).set_delay(life - 0.5)
 	t.chain().tween_callback(l.queue_free)
+
+
+# --- Blaster readout ----------------------------------------------------------
+# Built in code so it appears in every level's HUD without editing each .tscn.
+# Hidden entirely until the gun is bought.
+
+var _ammo_label: Label
+var _mode_label: Label
+var _flash_tween: Tween
+
+func _build_ammo_readout() -> void:
+	_ammo_label = Label.new()
+	# Pinned to the TOP-RIGHT (anchors, not fixed coords) so it never collides
+	# with the Lives/coins column on the left, at any window size.
+	_ammo_label.anchor_left = 1.0
+	_ammo_label.anchor_right = 1.0
+	_ammo_label.offset_left = -460.0
+	_ammo_label.offset_right = -22.0
+	_ammo_label.offset_top = 18.0
+	_ammo_label.offset_bottom = 118.0
+	_ammo_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_ammo_label.clip_text = false
+	_ammo_label.add_theme_color_override("font_color", Color(0.55, 0.95, 1.0))
+	_ammo_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	_ammo_label.add_theme_constant_override("outline_size", 10)
+	_ammo_label.add_theme_font_size_override("font_size", 78)   # 3x — readable mid-fight
+	_ammo_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_ammo_label.visible = false
+	add_child(_ammo_label)
+
+	# The fire mode goes on its own line underneath. Sharing one line with a
+	# 3-digit count at 78pt ran the name past the edge of the screen ("BOUNCY"
+	# lost its Y), and no sane box width fixes that for every mode name.
+	_mode_label = Label.new()
+	_mode_label.anchor_left = 1.0
+	_mode_label.anchor_right = 1.0
+	_mode_label.offset_left = -460.0
+	_mode_label.offset_right = -22.0
+	_mode_label.offset_top = 104.0
+	_mode_label.offset_bottom = 140.0
+	_mode_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_mode_label.clip_text = false
+	_mode_label.add_theme_color_override("font_color", Color(0.7, 0.95, 1.0))
+	_mode_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	_mode_label.add_theme_constant_override("outline_size", 7)
+	_mode_label.add_theme_font_size_override("font_size", 30)
+	_mode_label.visible = false
+	add_child(_mode_label)
+
+func _on_ammo_changed(ammo: int, _max_ammo: int) -> void:
+	if _ammo_label == null:
+		return
+	_ammo_label.visible = Game.has_gun
+	_ammo_label.text = str(ammo)
+	if _mode_label != null:
+		# Only name the mode when it isn't the plain blaster.
+		_mode_label.visible = Game.has_gun and Game.weapon_mode != "pellet"
+		_mode_label.text = Game.weapon_mode.to_upper()
+	# Red AND pulsing when empty, so running dry is impossible to miss.
+	_ammo_label.add_theme_color_override("font_color",
+		Color(1.0, 0.35, 0.35) if ammo <= 0 else Color(0.55, 0.95, 1.0))
+	_set_empty_flash(ammo <= 0 and Game.has_gun)
+
+func _set_empty_flash(on: bool) -> void:
+	if on == (_flash_tween != null and _flash_tween.is_valid()):
+		return                       # already in the right state
+	if not on:
+		if _flash_tween != null:
+			_flash_tween.kill()
+		_flash_tween = null
+		_ammo_label.modulate.a = 1.0
+		if _mode_label != null:
+			_mode_label.modulate.a = 1.0
+		return
+	_flash_tween = create_tween().set_loops()
+	_flash_tween.tween_property(_ammo_label, "modulate:a", 0.25, 0.35)
+	_flash_tween.tween_property(_ammo_label, "modulate:a", 1.0, 0.35)

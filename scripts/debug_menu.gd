@@ -21,6 +21,8 @@ func _ready() -> void:
 	$Panel/Margin/VBox/ResRow/Heal.pressed.connect(func(): Game.revive(); _refresh())
 	$Panel/Margin/VBox/GoRow/GoCity.pressed.connect(func(): _goto("res://scenes/city.tscn"))
 	$Panel/Margin/VBox/GoRow/GoIsland.pressed.connect(func(): _goto("res://scenes/main.tscn"))
+	$Panel/Margin/VBox/WeaponRow/RemoveUpgrade.pressed.connect(_remove_upgrade)
+	$Panel/Margin/VBox/WeaponRow/GiveGun.pressed.connect(_give_gun)
 	$Panel/Margin/VBox/Reset.pressed.connect(_reset_run)
 
 func _in_level() -> bool:
@@ -53,9 +55,10 @@ func _toggle() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _refresh() -> void:
-	_status.text = "Artifacts %d / %d    Coins %d    Exotic %d    Lives %d/%d\nquest_active: %s    night: %s  (N toggles)" % [
+	_status.text = "Artifacts %d / %d    Coins %d    Exotic %d    Lives %d/%d\nquest_active: %s    night: %s  (N toggles)\ngun: %s    ammo %d    mode %s" % [
 		Game.score, Game.total_artifacts, Game.coins, Game.exotic_matter,
-		Game.lives, Game.max_lives, str(Game.quest_active), str(Game.is_night)]
+		Game.lives, Game.max_lives, str(Game.quest_active), str(Game.is_night),
+		str(Game.has_gun), Game.ammo, Game.weapon_mode]
 	_count.max_value = maxi(Game.total_artifacts, 0)
 	_count.set_value_no_signal(Game.score)
 
@@ -80,6 +83,16 @@ func _complete_quest() -> void:
 		Game.begin_quest()
 	_set_score(Game.total_artifacts)
 	Game.complete_quest()
+	_refresh()
+
+# Put the blaster back to its standard barrel (undo a rapid/heavy/laser pickup).
+func _remove_upgrade() -> void:
+	Game.set_weapon_mode("pellet")
+	_refresh()
+
+func _give_gun() -> void:
+	Game.grant_gun()
+	Game.collect_ammo(Game.max_ammo)
 	_refresh()
 
 func _add_life() -> void:

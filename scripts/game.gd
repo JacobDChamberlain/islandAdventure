@@ -13,6 +13,9 @@ signal lives_changed(lives: int, max_lives: int)
 signal all_artifacts_collected()
 signal quest_started()          # the Elder's artifact hunt has begun
 signal game_over()
+signal ammo_changed(ammo: int, max_ammo: int)
+signal weapon_mode_changed(mode: String)
+signal gun_acquired()            # so levels can put blaster pickups out
 
 var total_artifacts: int = 0   # how many artifacts exist in the level
 var score: int = 0             # how many you've picked up
@@ -28,6 +31,15 @@ var quest_active: bool = false  # artifacts stay hidden until the Elder starts t
 var cinematic: bool = false     # true during a scripted moment (dialogue/finale): freeze the player
 var driving: bool = false        # true while the player is driving the vehicle
 var has_grapple: bool = false    # bought from the shop; persistent unlock (survives new_run)
+# --- Blaster: bought from the shop (persistent), ammo + fire mode are per-run ---
+var has_gun: bool = false        # persistent unlock, like has_grapple
+# True while Biscuit's shop window is up. The pause menu checks this so Esc
+# closes the shop instead of pausing underneath it.
+var shop_open: bool = false
+var max_ammo: int = 999
+var ammo: int = 0
+var starting_ammo: int = 500     # topped up to this whenever a level loads
+var weapon_mode: String = "pellet"   # pellet | rapid | heavy — upgrades found on the map
 
 # Spend coins on a shop item. Returns true if the purchase went through.
 func spend_coins(amount: int) -> bool:
@@ -48,6 +60,12 @@ func new_run(total: int) -> void:
 	driving = false
 	health = max_health
 	lives = max_lives
+	# Ammo + fire mode are per-level: you start each level stocked with the basic
+	# blaster, and any upgrade you found stays behind with the level you found it in.
+	ammo = starting_ammo if has_gun else 0
+	weapon_mode = "pellet"
+	ammo_changed.emit(ammo, max_ammo)
+	weapon_mode_changed.emit(weapon_mode)
 	score_changed.emit(score, total_artifacts)
 	exotic_changed.emit(exotic_matter)
 	coins_changed.emit(coins)
@@ -109,3 +127,30 @@ func begin_quest() -> void:
 		return
 	quest_active = true
 	quest_started.emit()
+
+# --- Blaster ------------------------------------------------------------------
+
+# Always grant the blaster through here — the signal is what makes ammo crates
+# and weapon upgrades appear in the level.
+func grant_gun() -> void:
+	if has_gun:
+		return
+	has_gun = true
+	ammo = maxi(ammo, starting_ammo)
+	ammo_changed.emit(ammo, max_ammo)
+	gun_acquired.emit()
+
+func collect_ammo(amount: int) -> void:
+	ammo = mini(ammo + amount, max_ammo)
+	ammo_changed.emit(ammo, max_ammo)
+
+func spend_ammo(amount: int = 1) -> bool:
+	if ammo < amount:
+		return false
+	ammo -= amount
+	ammo_changed.emit(ammo, max_ammo)
+	return true
+
+func set_weapon_mode(mode: String) -> void:
+	weapon_mode = mode
+	weapon_mode_changed.emit(mode)

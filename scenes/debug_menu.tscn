@@ -90,5 +90,16 @@ text = "Go to City"
 size_flags_horizontal = 3
 text = "Go to Island"
 
+[node name="WeaponRow" type="HBoxContainer" parent="Panel/Margin/VBox"]
+layout_mode = 2
+
+[node name="RemoveUpgrade" type="Button" parent="Panel/Margin/VBox/WeaponRow"]
+layout_mode = 2
+text = "Remove gun upgrade"
+
+[node name="GiveGun" type="Button" parent="Panel/Margin/VBox/WeaponRow"]
+layout_mode = 2
+text = "Give blaster + full ammo"
+
 [node name="Reset" type="Button" parent="Panel/Margin/VBox"]
 text = "Reset run"
