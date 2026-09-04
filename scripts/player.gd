@@ -227,14 +227,10 @@ func _toggle_lantern() -> void:
 		mi.set_surface_override_material(s["surf"], s["glow"] if _lantern_on else s["original"])
 	Sfx.ui_select()
 
-# Enemies ask this — a lit hero scares the nightmare heads off. False while
-# driving, since the car hides the hero and his light along with him.
+# Enemies ask this — a lit hero scares the nightmare heads off. True while
+# driving too: the car carries the lamp on its roof, and the hidden hero rides
+# at the car's own position, so the heads flee the car exactly as they would him.
 func lantern_is_on() -> bool:
-	return _lantern_on and not _driving
-
-# The raw switch position, regardless of driving — the car mirrors this to put
-# the light on its own roof.
-func lantern_switched_on() -> bool:
 	return _lantern_on
 
 # L lives here rather than in _input because _input bails out while driving, and

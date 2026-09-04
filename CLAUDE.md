@@ -125,7 +125,9 @@ and exposes **`height_at(x, z)`** — the source of truth for ground height.
 - **The lantern (L)** (`player.gd`): an OmniLight3D **above his head** — inside the
   model it would be boxed in by his own mesh and light nothing — plus a glowing
   duplicate of his material swapped in while lit. Enemies ask `lantern_is_on()`
-  and **flee** it (`enemy.gd` `State.FLEE`, `light_fear_range`/`flee_speed`).
+  and **flee** it (`enemy.gd` `State.FLEE`, `light_fear_range`/`flee_speed`) —
+  including from the CAR, which carries the lamp on its roof while you drive and
+  keeps the hidden hero at its own position, so the fear distance just works.
   A fleeing head runs *straight* away — water and all — so you can **herd it into
   the sea**, where it drowns (`drown_depth`). `fearless_scale` > 0 lets giant
   kaiju ignore the light. Heads only wander onto walkable ground, so they never

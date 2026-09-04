@@ -390,8 +390,8 @@ func _physics_process(delta: float) -> void:
 	# The hero's lantern is hidden with him inside the car, so the CAR carries the
 	# light instead — press L while driving and the headlamp comes on.
 	if _lamp != null:
-		_lamp.visible = _driver != null and _driver.has_method("lantern_switched_on") \
-			and _driver.lantern_switched_on()
+		_lamp.visible = _driver != null and _driver.has_method("lantern_is_on") \
+			and _driver.lantern_is_on()
 
 	# Safety net: if the car ever falls through the world, drop it back on the road
 	# (works whether or not anyone's driving — R only works while seated).
