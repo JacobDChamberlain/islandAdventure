@@ -51,6 +51,14 @@ var _cine_blend: float = 0.0 # 0..1 toward the zoomed-in conversation framing
 @export var sprint_speed: float = 20.0     # speed while sprinting
 @export var double_tap_window: float = 0.3 # max seconds between the two W taps
 
+# --- Lantern (L): the hero lights himself up so you can see at night ---
+@export var lantern_color: Color = Color(1.0, 0.86, 0.6)  # warm lamp light
+@export var lantern_range: float = 36.0     # how far the cast light reaches
+@export var lantern_energy: float = 9.0     # brightness of the cast light
+@export var lantern_height: float = 1.35    # see _setup_lantern — must clear his head
+@export var lantern_glow: float = 1.1       # how brightly the model itself glows
+@export var lantern_shadows: bool = true    # light gets blocked by walls/terrain
+
 # --- Grapple hook (Q / middle-mouse): fire at a surface, reel up onto roofs ---
 @export var can_grapple: bool = false            # gated per-level (city on); later a 25-coin shop unlock
 @export var grapple_range: float = 48.0          # how far the hook can reach
@@ -97,6 +105,14 @@ var _attacking: bool = false
 var _dancing: bool = false
 var _punch_toggle: bool = false   # alternate the two punch clips
 
+# --- Lantern state ---
+var _lantern: OmniLight3D
+var _lantern_on: bool = false
+var _lantern_t: float = 0.0
+# One entry per mesh surface: the material it normally wears, and a glowing copy
+# we swap in only while the lantern is lit.
+var _glow_slots: Array[Dictionary] = []
+
 # --- Grapple state ---
 var _grappling: bool = false
 var _grapple_point: Vector3 = Vector3.ZERO
@@ -133,6 +149,7 @@ func _ready() -> void:
 	_fit_model()
 	_setup_animation()
 	_setup_grapple_visuals()
+	_setup_lantern()
 	_snap_to_ground()
 
 func _snap_to_ground() -> void:
@@ -144,6 +161,84 @@ func _snap_to_ground() -> void:
 		global_position.y = island.height_at(global_position.x, global_position.z) + 3.0
 		velocity = Vector3.ZERO
 	_spawn_point = global_position
+
+# --- Lantern -----------------------------------------------------------------
+# Press L and the hero himself becomes the light source: a warm omni light at
+# chest height, plus his own materials switched to emissive so he visibly glows
+# instead of just projecting light out of nowhere. Built in code (like the
+# grapple visuals) so it rides along with every scene that uses this script.
+
+func _setup_lantern() -> void:
+	_lantern = OmniLight3D.new()
+	_lantern.light_color = lantern_color
+	_lantern.light_energy = lantern_energy
+	_lantern.omni_range = lantern_range
+	_lantern.omni_attenuation = 0.8
+	_lantern.shadow_enabled = lantern_shadows
+	# The light MUST sit above his head, not inside his chest. A shadow-casting
+	# omni light placed inside the hero's own mesh is boxed in by that mesh in
+	# every direction, so nothing around him lights up — he glows and the world
+	# stays black. Clearing the model lets it light the ground, trees and walls
+	# and cast a proper shadow of him.
+	_lantern.position = Vector3(0.0, lantern_height, 0.0)
+	_lantern.visible = false
+	add_child(_lantern)
+	_collect_glow_materials()
+
+# Build a glowing COPY of each of the hero's materials, but leave it unapplied —
+# `_toggle_lantern` swaps it in and back out. We never modify the material he
+# normally wears: the Meshy hero ships with emission already enabled (a black
+# emission color ADDed over an emissive texture), and touching that changes how
+# he looks unlit — disabling it let his metallic=1.0 highlights read as "shiny".
+func _collect_glow_materials() -> void:
+	if model == null:
+		return
+	for child in model.find_children("*", "MeshInstance3D", true, false):
+		var mi := child as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		for i in mi.mesh.get_surface_count():
+			# What he wears normally — usually null, meaning "use the mesh's own".
+			var original: Material = mi.get_surface_override_material(i)
+			var src: Material = original if original != null else mi.mesh.surface_get_material(i)
+			if not (src is BaseMaterial3D):
+				continue
+			var mat: BaseMaterial3D = src.duplicate()
+			mat.emission_enabled = true
+			mat.emission = lantern_color
+			mat.emission_energy_multiplier = lantern_glow
+			# Drive the glow through his own texture so he keeps his details and
+			# doesn't turn into a flat glowing blob.
+			if mat.albedo_texture:
+				mat.emission_texture = mat.albedo_texture
+				mat.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
+			_glow_slots.append({"mi": mi, "surf": i, "original": original, "glow": mat})
+
+func _toggle_lantern() -> void:
+	if _lantern == null:
+		return
+	_lantern_on = not _lantern_on
+	_lantern.visible = _lantern_on
+	# Swapping the whole material back restores his imported look exactly.
+	for s in _glow_slots:
+		var mi: MeshInstance3D = s["mi"]
+		mi.set_surface_override_material(s["surf"], s["glow"] if _lantern_on else s["original"])
+	Sfx.ui_select()
+
+# Enemies ask this — a lit hero scares the nightmare heads off. False while
+# driving, since the car hides the hero and his light along with him.
+func lantern_is_on() -> bool:
+	return _lantern_on and not _driving
+
+func _process(delta: float) -> void:
+	if not _lantern_on or _lantern == null:
+		return
+	# Gentle breathing so the glow feels alive instead of a flat spotlight.
+	_lantern_t += delta
+	var pulse := 0.92 + 0.08 * sin(_lantern_t * 2.4)
+	_lantern.light_energy = lantern_energy * pulse
+	for s in _glow_slots:
+		s["glow"].emission_energy_multiplier = lantern_glow * pulse
 
 # --- Grapple hook ------------------------------------------------------------
 # A rope (world-space line) + a center-screen crosshair, both built in code so
@@ -599,7 +694,7 @@ func _input(event: InputEvent) -> void:
 			_attack("kick")
 		elif event.button_index == MOUSE_BUTTON_MIDDLE:
 			_fire_grapple()
-	# Keyboard alternatives: J punch, K kick, G/H dance, Q grapple.
+	# Keyboard alternatives: J punch, K kick, G/H dance, Q grapple, L lantern.
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
 			KEY_J: _attack("punch")
@@ -607,6 +702,7 @@ func _input(event: InputEvent) -> void:
 			KEY_G: _toggle_dance(anim_dance)
 			KEY_H: _toggle_dance(anim_dance2)
 			KEY_Q: _fire_grapple()
+			KEY_L: _toggle_lantern()
 	# Jump on the moment Space is pressed (not while held), so double-jump works.
 	# Space while grappling lets go early (with the launch pop).
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE:

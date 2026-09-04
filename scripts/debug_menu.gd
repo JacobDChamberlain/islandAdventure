@@ -31,6 +31,15 @@ func _input(event: InputEvent) -> void:
 			and event.physical_keycode == KEY_P:
 		_toggle()
 		get_viewport().set_input_as_handled()
+	# N (while this panel is open) flips between midnight and morning, so you can
+	# test night-time things without waiting out the day/night cycle.
+	elif _open and event is InputEventKey and event.pressed and not event.echo \
+			and event.physical_keycode == KEY_N:
+		var level := get_tree().current_scene
+		if level and level.has_method("toggle_night"):
+			level.toggle_night()
+			_refresh()
+		get_viewport().set_input_as_handled()
 
 func _toggle() -> void:
 	if not _open and not _in_level():
@@ -44,9 +53,9 @@ func _toggle() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _refresh() -> void:
-	_status.text = "Artifacts %d / %d    Coins %d    Exotic %d    Lives %d/%d\nquest_active: %s" % [
+	_status.text = "Artifacts %d / %d    Coins %d    Exotic %d    Lives %d/%d\nquest_active: %s    night: %s  (N toggles)" % [
 		Game.score, Game.total_artifacts, Game.coins, Game.exotic_matter,
-		Game.lives, Game.max_lives, str(Game.quest_active)]
+		Game.lives, Game.max_lives, str(Game.quest_active), str(Game.is_night)]
 	_count.max_value = maxi(Game.total_artifacts, 0)
 	_count.set_value_no_signal(Game.score)
 

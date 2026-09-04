@@ -22,6 +22,13 @@ extends CharacterBody3D
 @export var model_yaw_offset_deg: float = 180.0
 @export var night_detect_mult: float = 1.7   # detect/lose range multiplier at night
 @export var night_speed_mult: float = 1.25    # chase-speed multiplier at night
+# --- Fear of the hero's lantern (L). A lit player sends heads running. ---
+@export var light_fear_range: float = 20.0   # panics when a lit hero is this close
+@export var flee_speed: float = 9.5          # how fast it bolts away
+@export var flee_hysteresis: float = 1.35    # keeps running this far past the range
+@export var fearless_scale: float = 0.0      # heads this big ignore the light (0 = none are)
+@export var fall_limit: float = -12.0         # below this it has fallen off the world
+@export var drown_depth: float = 2.0          # drowns where the seabed is this far below the surface
 @export var exotic_drop_chance: float = 0.28  # chance to drop Exotic Matter when defeated
 @export var coin_min: int = 3                 # coins dropped when defeated (range)
 @export var coin_max: int = 7
@@ -32,7 +39,7 @@ const COIN_SCENE := preload("res://scenes/coin.tscn")
 # Emitted when this head is stomped, so the level can respawn it after a delay.
 signal died()
 
-enum State { WANDER, PAUSE, CHASE, ATTACK, HIT }
+enum State { WANDER, PAUSE, CHASE, ATTACK, HIT, FLEE }
 
 const WALK := "Walking"
 const RUN := "Running"
@@ -142,6 +149,23 @@ func _attack_range() -> float:
 func _chase_speed() -> float:
 	return chase_speed * (night_speed_mult if Game.is_night else 1.0)
 
+# --- Fear of the light: a hero with his lantern lit drives heads away. ---------
+
+func _fear_range() -> float:
+	return light_fear_range + _size_reach() * 1.5
+
+# `slack` > 1 keeps a fleeing head running past the range it panicked at, so it
+# doesn't calm down and re-panic on the boundary.
+func _afraid_of(p: Node3D, dist: float, slack: float = 1.0) -> bool:
+	if p == null or not p.has_method("lantern_is_on") or not p.lantern_is_on():
+		return false
+	# Optional: the truly massive kaiju are too big to be spooked by a lamp.
+	if fearless_scale > 0.0 and global_transform.basis.get_scale().y >= fearless_scale:
+		return false
+	# Deliberately no `_same_level` check: that gate exists for whether a head can
+	# REACH you, but light spills across slopes and ledges regardless of reach.
+	return dist <= _fear_range() * slack
+
 # A head's horizontal reach ~ its collision radius (0.6 * uniform scale). Big heads
 # sit high up, so detection/attack use horizontal distance + this reach — otherwise
 # a grounded player is always "too far" from a giant's high origin.
@@ -172,6 +196,9 @@ func _reevaluate() -> void:
 	var p := _get_player()
 	if p:
 		var d := _horiz_dist(global_position, p.global_position)
+		if _afraid_of(p, d):
+			_enter_flee()          # struck while the lantern is lit → keep running
+			return
 		if d <= _attack_range() and _same_level(p):
 			_enter_attack()
 			return
@@ -202,6 +229,12 @@ func _enter_chase() -> void:
 	_state = State.CHASE
 	_play(RUN)
 
+func _enter_flee() -> void:
+	_state = State.FLEE
+	_play(SPRINT)
+	if _rng.randf() < 0.6:
+		_play3d(_voice_player, Sfx.random_weird(), 0.25)   # a startled yelp
+
 func _enter_attack() -> void:
 	_state = State.ATTACK
 	_atk_timer = attack_windup
@@ -217,6 +250,19 @@ func _play(clip: String) -> void:
 # --- Movement / behavior ------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
+	# Fell off the edge of the world. The water is just a mesh — there's no
+	# collider under it — so without this it drops forever, never reports in, and
+	# never comes back. Retire it so the level respawns a fresh head at its spot.
+	if global_position.y < fall_limit and not is_queued_for_deletion():
+		_fall_out()
+		return
+
+	# Herded into the sea. Heads never wander in on their own, but a fleeing one
+	# runs straight away from you — so you can drive it off the beach.
+	if not is_queued_for_deletion() and _in_deep_water():
+		_drown()
+		return
+
 	# Knocked back by a player attack: coast + slow, ignore the AI for a moment.
 	if _kb_timer > 0.0:
 		_kb_timer -= delta
@@ -249,7 +295,17 @@ func _physics_process(delta: float) -> void:
 	if p:
 		dist = _horiz_dist(global_position, p.global_position)
 
+	# A lit hero scares the head off whatever it was doing — including mid-attack.
+	# (Not out of a hit reaction; _reevaluate picks that up when the clip ends.)
+	if _state != State.HIT and _state != State.FLEE and _afraid_of(p, dist):
+		_enter_flee()
+
 	match _state:
+		State.FLEE:
+			if _afraid_of(p, dist, flee_hysteresis):
+				_flee_move(p, delta)
+			else:
+				_enter_wander()
 		State.WANDER:
 			if p and dist <= _detect_range() and _same_level(p):
 				_enter_chase()
@@ -299,13 +355,7 @@ func _physics_process(delta: float) -> void:
 func _wander_move(delta: float) -> void:
 	var ahead := global_position + _heading * 3.0
 	var too_far := global_position.distance_to(_home) > roam_radius
-	var into_water := false
-	if _island != null:
-		if _island.has_method("is_walkable"):
-			into_water = not _island.is_walkable(ahead.x, ahead.z)
-		else:
-			into_water = _island.height_at(ahead.x, ahead.z) < 1.5
-	if too_far or into_water:
+	if too_far or not _walkable(ahead):
 		var back := _home - global_position
 		back.y = 0.0
 		if back.length() > 0.01:
@@ -316,6 +366,25 @@ func _wander_move(delta: float) -> void:
 	_timer -= delta
 	if _timer <= 0.0:
 		_enter_pause()
+
+func _flee_move(p: Node3D, delta: float) -> void:
+	var away := global_position - p.global_position
+	away.y = 0.0
+	if away.length() < 0.01:
+		away = -_heading
+	# Straight away from you, water or not — that's what makes herding possible.
+	# Where it ends up is down to where you stand when you light up.
+	_heading = away.normalized()
+	velocity.x = _heading.x * flee_speed
+	velocity.z = _heading.z * flee_speed
+	_face(_heading, delta)
+
+func _walkable(pos: Vector3) -> bool:
+	if _island == null:
+		return true
+	if _island.has_method("is_walkable"):
+		return _island.is_walkable(pos.x, pos.z)
+	return _island.height_at(pos.x, pos.z) >= 1.5
 
 func _chase_move(p: Node3D, delta: float) -> void:
 	var dir := p.global_position - global_position
@@ -382,6 +451,28 @@ func hit_by_player(from_pos: Vector3, knockback: float, damage: int = 1) -> void
 func _enter_hit(from_back: bool) -> void:
 	_state = State.HIT
 	_play(HIT_BACK if from_back else HIT_FRONT)
+
+# Lost off the world rather than defeated: no poof, no loot — you didn't beat it,
+# you just misplaced it. Still reports `died` so the level brings one back.
+func _fall_out() -> void:
+	died.emit()
+	queue_free()
+
+# Standing where the seabed is well below the surface. The city has no water and
+# no `water_level`, so this is island-only by construction.
+func _in_deep_water() -> bool:
+	if _island == null or not _island.has_method("height_at"):
+		return false
+	var surface: float = _island.water_level if "water_level" in _island else 0.0
+	return _island.height_at(global_position.x, global_position.z) < surface - drown_depth
+
+# Drowned: a splash and it's gone. Like a fall, this drops no loot — the light
+# is a way to clear a path, not a way to farm coins.
+func _drown() -> void:
+	Fx.poof(global_position, Color(0.4, 0.65, 0.85), 24, 1.6)
+	Sfx.stomp()
+	died.emit()
+	queue_free()
 
 func _die() -> void:
 	var sc: float = global_transform.basis.get_scale().y

@@ -55,7 +55,12 @@ and does GUI work — the editor is a native app I can't click into.
   drive it. `Game.cinematic` (set by the NPC around dialogue + the finale) freezes the
   player, zooms the camera in, and makes enemies stand down.
 
-**Scenes**: `title.tscn` (synthwave shader bg) → `main.tscn` (the level). Reusable
+**Scenes**: `title.tscn` (synthwave shader bg) → `main.tscn` (the island) →
+`city.tscn` (level 2). **Both levels' roots are a `Main` node running `main.gd`** —
+so day/night, enemy respawn and the quest wiring are shared; only the ground
+differs (`island.gd` on `Island`, `city.gd` on `City`, both in group `"island"`
+and both exposing `height_at`/`is_walkable`). Don't read `city.gd` expecting
+level logic — it only builds terrain. Reusable
 instances: `collectible.tscn` (artifact — group `"artifact"`), `exotic_matter.tscn`
 (rare enemy drop — group `"exotic"`), `coin.tscn` (common enemy drop — group
 `"coin"`), `npc.tscn` (quest-giver "Spencer" — group `"npc"`), `enemy.tscn`,
@@ -109,6 +114,19 @@ and exposes **`height_at(x, z)`** — the source of truth for ground height.
 - **Day/night** (`main.gd`): a warped time-of-day curve keeps the sun up for
   `day_fraction` (0.75) of the cycle — long day, short night. `_sun_height()` remaps
   `_tod` into a half-sine per phase; `Game.is_night` is set when daylight < 0.15.
+- **The lantern (L)** (`player.gd`): an OmniLight3D **above his head** — inside the
+  model it would be boxed in by his own mesh and light nothing — plus a glowing
+  duplicate of his material swapped in while lit. Enemies ask `lantern_is_on()`
+  and **flee** it (`enemy.gd` `State.FLEE`, `light_fear_range`/`flee_speed`).
+  A fleeing head runs *straight* away — water and all — so you can **herd it into
+  the sea**, where it drowns (`drown_depth`). `fearless_scale` > 0 lets giant
+  kaiju ignore the light. Heads only wander onto walkable ground, so they never
+  drown on their own.
+- **Heads always report in when lost.** `_fall_out()` (below `fall_limit`, e.g.
+  off the world — the water is a mesh with no collider) and `_drown()` both emit
+  `died` so the level respawns them; neither drops loot, so scaring heads off a
+  ledge can't be farmed. Drowning is island-only in practice — the city is dry
+  ground everywhere — but falling off the world works in both.
 - **Night aggro**: enemies scale `detect_range`/`lose_range` by `night_detect_mult`
   and `chase_speed` by `night_speed_mult` whenever `Game.is_night` (see the
   `_detect_range()`/`_lose_range()`/`_chase_speed()` helpers in `enemy.gd`).
@@ -130,6 +148,11 @@ user's rigged head-bust `assets/models/nightmare.glb`. Raw zips are gitignored.
 - Scaling a CharacterBody3D node (the giant enemy) is fine, but ground-snap must use
   the world-space half-height (`model_height*0.5*scale.y`).
 - Save/load resets enemies to spawn (live enemy state isn't saved yet).
+- **Never mutate the hero's imported material in place.** It ships with
+  `emission_enabled = true` (black emission ADDed over an emissive texture) and
+  `metallic = 1.0`; turning that emission off unmasks his specular and he reads as
+  weirdly shiny. The lantern (`player.gd`) instead keeps a glowing *duplicate* and
+  swaps the whole material in/out, so unlit he is pixel-identical to the import.
 
 ## Status
 

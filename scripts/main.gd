@@ -4,7 +4,7 @@ extends Node3D
 
 @export var day_length: float = 300.0    # seconds for a full day+night
 @export var day_fraction: float = 0.75   # portion of the cycle that is daytime
-@export var enemy_respawn_delay: float = 12.0   # seconds before a defeated head returns
+@export var enemy_respawn_delay: float = 30.0   # seconds before a defeated head returns
 var _tod: float = 0.16                    # time of day, 0..1 (starts mid-morning)
 
 const ENEMY_SCENE := preload("res://scenes/enemy.tscn")
@@ -47,6 +47,12 @@ func _sun_height() -> float:
 	else:
 		theta = PI + ((_tod - df) / (1.0 - df)) * PI   # PI..TAU → sun down
 	return sin(theta)
+
+# Dev helper (DebugMenu: P then N): jump straight to midnight or back to
+# mid-morning instead of waiting out the cycle to test night-time things.
+func toggle_night() -> void:
+	_tod = 0.16 if Game.is_night else 0.875
+	_update_day_night()
 
 func _update_day_night() -> void:
 	var s := _sun_height()                    # sun height: -1..1, peak at midday
