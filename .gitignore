@@ -10,3 +10,9 @@
 /assets/models/hero_animated/
 /assets/models/nm_extract/
 /assets/models/hero_character.glb
+
+# Raw Meshy gun exports (90-130 MB each, 4K textures — one is over GitHub's
+# 100 MB hard limit). Only the shrunk gun_*.glb are committed; regenerate with
+#   python3 tools/shrink_glb_textures.py <raw>.glb assets/models/gun_<name>.glb --max 1024
+# (covers the .glb, its .import, and the 4K textures Godot extracts beside it)
+/assets/models/gun-*-model*

@@ -233,6 +233,11 @@ func _toggle_lantern() -> void:
 func lantern_is_on() -> bool:
 	return _lantern_on
 
+# The weapon hides the gun model during punches/kicks — he has no aim animation,
+# so a pistol riding through a haymaker looks wrong.
+func is_attacking() -> bool:
+	return _attacking
+
 # L lives here rather than in _input because _input bails out while driving, and
 # the lantern should still toggle from the driver's seat.
 func _unhandled_input(event: InputEvent) -> void:

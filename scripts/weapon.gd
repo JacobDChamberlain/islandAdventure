@@ -54,6 +54,21 @@ const MODES := {
 @export var muzzle_height: float = 0.7
 @export var aim_distance: float = 220.0    # how far the crosshair ray reaches
 
+# --- The visible gun in his hand ------------------------------------------
+# Meshy bakes a ~100x scale into the hero's rig, so a model parented to a hand
+# bone inherits that: the fit below divides it back out using the bone's real
+# world scale, and `gun_length` is a true world-space measurement in metres.
+@export var gun_model: PackedScene = preload("res://assets/models/gun_eyeball.glb")
+@export var gun_bone: String = "RightHand"
+@export var gun_length: float = 0.84        # longest axis, in real metres
+@export var gun_offset: Vector3 = Vector3.ZERO      # nudge into the grip, in metres
+@export var gun_rotation_deg: Vector3 = Vector3.ZERO
+# Which way the MODEL points in its own space. Meshy exports land in arbitrary
+# orientations, so instead of hand-tuning Euler angles we say which local axis is
+# the barrel and which is "up", and the fit rotates that onto the hero's aim.
+@export var gun_barrel_axis: Vector3 = Vector3(-1, 0, 0)
+@export var gun_up_axis: Vector3 = Vector3(0, 1, 0)
+
 var drawn: bool = false
 var scoped: bool = false
 
@@ -62,6 +77,8 @@ var _player: CharacterBody3D
 var _camera: Camera3D
 var _beam: MeshInstance3D          # the laser's visible tube (built like the grapple rope)
 var _beam_sound: float = 0.0       # throttles the sizzle so it isn't machine-gunned
+var _hand: BoneAttachment3D        # follows the hero's hand bone
+var _gun: Node3D                   # the visible weapon model
 var _rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
@@ -71,6 +88,7 @@ func _ready() -> void:
 	if _camera:
 		normal_fov = _camera.fov
 	_build_beam()
+	_setup_gun_visual()
 
 func _build_beam() -> void:
 	var cyl := CylinderMesh.new()
@@ -91,6 +109,64 @@ func _build_beam() -> void:
 	_beam.material_override = mat
 	_beam.visible = false
 	add_child(_beam)
+
+# Hang the gun off the hero's hand bone. It only shows while the gun is drawn,
+# so holstering genuinely puts it away.
+func _setup_gun_visual() -> void:
+	if gun_model == null or _player == null:
+		return
+	var model: Node3D = _player.get("model")
+	if model == null:
+		return
+	var skels := model.find_children("*", "Skeleton3D", true, false)
+	if skels.is_empty():
+		return
+	_hand = BoneAttachment3D.new()
+	_hand.bone_name = gun_bone
+	skels[0].add_child(_hand)
+	_gun = gun_model.instantiate()
+	_hand.add_child(_gun)
+	_gun.visible = false
+	await get_tree().process_frame     # wait for the skeleton to pose
+	_fit_gun()
+
+func _fit_gun() -> void:
+	if _gun == null or not is_instance_valid(_gun):
+		return
+	var box := AABB()
+	var first := true
+	for child in _gun.find_children("*", "MeshInstance3D", true, false):
+		var mi := child as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		var b: AABB = mi.transform * mi.mesh.get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	if first:
+		return
+	var longest: float = maxf(box.size.x, maxf(box.size.y, box.size.z))
+	if longest <= 0.0:
+		return
+	# Divide out the rig's baked scale so gun_length/gun_offset mean real metres.
+	var bone_scale: float = maxf(_hand.global_transform.basis.get_scale().x, 0.0001)
+	var s: float = gun_length / (longest * bone_scale)
+
+	# Orient it properly instead of leaving it flat in his palm. The hand bone's
+	# axes are arbitrary, so rather than hand-guessing Euler angles we compute the
+	# local rotation that lands the model's long axis along the hero's forward
+	# (where the reticle points) and its tall axis along world up.
+	var p_inv := _player.global_transform.affine_inverse()
+	var bone_in_player := (p_inv * _hand.global_transform).basis.orthonormalized()
+	# Rotation that carries the model's own barrel/up axes onto the hero's
+	# forward/up (forward = -Z, which is exactly where the reticle points).
+	var b := gun_barrel_axis.normalized()
+	var m := gun_up_axis.normalized()
+	var model_frame := Basis(b, m, b.cross(m))
+	var aim_frame := Basis(Vector3(0, 0, -1), Vector3(0, 1, 0), Vector3(0, 0, -1).cross(Vector3(0, 1, 0)))
+	var align := aim_frame * model_frame.inverse()
+	var local := bone_in_player.inverse() * align
+	local = local * Basis.from_euler(gun_rotation_deg * (PI / 180.0))
+	_gun.transform = Transform3D(local.scaled(Vector3.ONE * s), gun_offset / bone_scale)
 
 # While driving, the car is the gun platform: its chase camera aims and the
 # muzzle rides on the car, since the hero himself is hidden inside it.
@@ -138,6 +214,10 @@ func _unhandled_input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	if _cooldown > 0.0:
 		_cooldown -= delta
+
+	if _gun != null and is_instance_valid(_gun):
+		_gun.visible = Game.has_gun and drawn and _player.visible \
+			and not (_player.has_method("is_attacking") and _player.is_attacking())
 
 	# Scope: pull the FOV in while Shift is held with the gun out.
 	scoped = is_active() and Input.is_physical_key_pressed(KEY_SHIFT)

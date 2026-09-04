@@ -193,6 +193,24 @@ That downloads a zip; use the `..._Merged_Animations.glb` inside (mesh + 24-bone
 skeleton + all clips). Hero = `assets/models/hero_anim_merged.glb`; the enemy is the
 user's rigged head-bust `assets/models/nightmare.glb`. Raw zips are gitignored.
 
+**Props (guns, crates) — NOT the character pipeline.** No A-Pose/rig/animation:
+generate, remesh to ~10K, export glb, rigging off. Meshy ships **4096px** textures
+regardless (its texture tool's floor is 2048 and the download panel offers no
+size option), which makes a 1-inch prop weigh 30-130 MB — GitHub hard-rejects
+anything over 100 MB. Fix it locally:
+
+```bash
+python3 tools/shrink_glb_textures.py assets/models/gun-eyeball-model-remesh-10k.glb \
+    assets/models/gun_eyeball.glb --max 1024      # 32.5 MB -> 1.1 MB, geometry untouched
+```
+Raw `gun-*-model*` exports are gitignored; only the shrunk `gun_*.glb` are committed.
+
+**Holding a prop**: `weapon.gd _setup_gun_visual()` hangs the model off a
+`BoneAttachment3D` on the hero's `RightHand` (24-bone rig). Meshy bakes a ~100x
+scale into that rig, so `_fit_gun()` divides the bone's world scale back out —
+which is why `gun_length` is a true measurement in metres. `gun_offset` /
+`gun_rotation_deg` are for nudging it into the grip by eye.
+
 ## Gotchas
 
 - `.ogg`/`.wav` default to looping on import — SFX force loop off in `sfx.gd`.
