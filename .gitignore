@@ -16,3 +16,5 @@
 #   python3 tools/shrink_glb_textures.py <raw>.glb assets/models/gun_<name>.glb --max 1024
 # (covers the .glb, its .import, and the 4K textures Godot extracts beside it)
 /assets/models/gun-*-model*
+/assets/models/ammo-crate-*
+/assets/models/scifi-ammo-crate-*

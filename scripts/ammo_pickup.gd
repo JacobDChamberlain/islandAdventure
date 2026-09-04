@@ -5,12 +5,12 @@ extends Area3D
 # greybox box mesh is only used when no model is set.
 
 @export var ammo_amount: int = 25
-@export var model: PackedScene = null       # optional Meshy replacement
+@export var model: PackedScene = preload("res://assets/models/ammo_crate.glb")
 @export var model_target_size: float = 0.9  # longest axis, in metres
 @export var spin_speed: float = 1.2
 @export var bob_height: float = 0.12
 @export var bob_speed: float = 2.4
-@export var rest_height: float = 0.9        # floats this far above the ground
+@export var rest_height: float = 0.18       # its BASE floats this far above the ground
 
 var _base_y: float = 0.0
 var _time: float = 0.0
@@ -48,19 +48,34 @@ func _build_visual() -> void:
 	add_child(mi)
 	_visual = mi
 
+# Measure via GLOBAL transforms folded back into the visual's own space. Meshy
+# wraps meshes in parent nodes that carry their own transform, and reading only
+# `mi.transform` ignores those — which silently made the crate 1.24 m when it was
+# asked for 0.90.
 func _fit_model() -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(_visual):
+		return
+	var inv := _visual.global_transform.affine_inverse()
 	var box := AABB()
 	var first := true
 	for child in _visual.find_children("*", "MeshInstance3D", true, false):
 		var mi := child as MeshInstance3D
 		if mi.mesh == null:
 			continue
-		var b: AABB = mi.transform * mi.mesh.get_aabb()
+		var b: AABB = (inv * mi.global_transform) * mi.mesh.get_aabb()
 		box = b if first else box.merge(b)
 		first = false
+	if first:
+		return
 	var longest: float = maxf(box.size.x, maxf(box.size.y, box.size.z))
-	if longest > 0.0:
-		_visual.scale = Vector3.ONE * (model_target_size / longest)
+	if longest <= 0.0:
+		return
+	var s: float = model_target_size / longest
+	_visual.scale = Vector3.ONE * s
+	# Stand it ON the pickup's origin rather than centred through it, so
+	# rest_height means "how high its base floats" and it never sinks into a hill.
+	_visual.position = -(box.position + Vector3(box.size.x * 0.5, 0.0, box.size.z * 0.5)) * s
 
 # Same rule as every other placed thing: ask the ground how high it is, don't
 # raycast (terrain collision isn't ready on the first frame).
