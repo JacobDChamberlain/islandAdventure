@@ -278,6 +278,20 @@ on every ext_resource, `anchors_preset` becomes `layout_mode`. Separately, Godot
 omits properties that equal their script default, so a value vanishing from a
 `.tscn` isn't always a loss — check the script's default first.
 
+**Textures must be imported VRAM Compressed, not Lossless.** Godot imports a
+texture as Lossless with `detect_3d/compress_to=1`, meaning "the first time I'm
+rendered in 3D, silently reimport me". That reimport happens **while the game is
+running from the editor**, swapping the resource underneath it — the asset renders
+solid black until the process is restarted. It's intermittent (per texture, on
+first sight), affects anything from Biscuit to the ground, and is EDITOR-ONLY:
+`detect_3d` never runs in an exported build. All 3D textures are now
+`compress/mode=2` with `detect_3d/compress_to=0`, so there's nothing left to
+auto-detect. Check new imports with:
+
+```bash
+grep -l "detect_3d/compress_to=1" $(find . -name '*.import' ! -path './.godot/*')
+```
+
 ## Gotchas
 
 - `.ogg`/`.wav` default to looping on import — SFX force loop off in `sfx.gd`.
