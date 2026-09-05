@@ -18,3 +18,7 @@
 /assets/models/gun-*-model*
 /assets/models/ammo-crate-*
 /assets/models/scifi-ammo-crate-*
+# Raw Meshy city buildings: 25-71 MB each with 4K textures. Shrink them with
+#   python3 tools/shrink_glb_textures.py <raw>.glb assets/models/<name>.glb --max 1024
+# and commit THAT, the way the guns and the ammo crate were done.
+/assets/models/city-building-*

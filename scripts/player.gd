@@ -97,6 +97,8 @@ var _cine_blend: float = 0.0 # 0..1 toward the zoomed-in conversation framing
 	"WalkBack": "res://assets/animations/walk_back.res",
 	"DrawGun": "res://assets/animations/draw_gun.res",
 	"Shooting": "res://assets/animations/shooting.res",
+	"StrafeLeft": "res://assets/animations/strafe_left.res",
+	"StrafeRight": "res://assets/animations/strafe_right.res",
 }
 @export var anim_sneak: String = "SneakWalk"
 @export var anim_stand_to_crouch: String = "StandToCrouch"
@@ -105,6 +107,13 @@ var _cine_blend: float = 0.0 # 0..1 toward the zoomed-in conversation framing
 @export var anim_draw_gun: String = "DrawGun"
 @export var anim_shoot: String = "Shooting"
 @export var crouch_speed: float = 4.5                 # sneaking is slow
+# The walk-back clip is authored at a stroll, so it's played faster to keep up
+# with how quickly you actually reverse. This is the pace it looks natural at;
+# playback scales by your real speed divided by it.
+@export var walk_back_ref_speed: float = 5.0
+@export var anim_strafe_left: String = "StrafeLeft"
+@export var anim_strafe_right: String = "StrafeRight"
+@export var strafe_ref_speed: float = 5.0             # pace the strafe clips look natural at
 @export var jump_anim_speed: float = 1.6   # play the jump clip faster so it reads
 @export var jump_anim_start: float = 0.25  # skip this many seconds of jump wind-up
 @export var sprint_jump_anim_speed: float = 1.5 # speed of the sprint run-and-jump
@@ -127,6 +136,9 @@ var _attacking: bool = false
 var _dancing: bool = false
 var _crouching: bool = false
 var _shooting: bool = false   # set by weapon.gd while you hold fire
+var _stepping_back: bool = false  # reversing: drives the clip choice
+var _strafe_dir: int = 0          # -1 left, +1 right, 0 not sidestepping
+var _paced_speed: float = 1.0     # playback rate of whichever paced clip is up
 var _crouch_posed: bool = false   # parked on the last frame of the crouch transition
 var _shoot_interval: float = 0.0  # seconds between shots, reported by weapon.gd
 var _shoot_speed: float = 1.0     # playback rate that makes one cycle = one shot
@@ -580,12 +592,23 @@ func _update_animation() -> void:
 	elif not is_on_floor():
 		desired = anim_jump
 	elif moving:
-		# Reversing gets its own clip rather than running backwards on the spot.
-		var back := Input.is_physical_key_pressed(KEY_S) and not Input.is_physical_key_pressed(KEY_W)
-		if back and anim.has_animation(anim_walk_back):
+		# Reversing and sidestepping get their own clips rather than a forward run
+		# played while sliding sideways.
+		var strafe_clip := anim_strafe_left if _strafe_dir < 0 else anim_strafe_right
+		if _stepping_back and anim.has_animation(anim_walk_back):
 			desired = anim_walk_back
+		elif _strafe_dir != 0 and anim.has_animation(strafe_clip):
+			desired = strafe_clip
 		else:
 			desired = anim_run_fast if _sprinting else anim_run
+	# Walk-back and the strafes are strolls, played faster to keep pace with how
+	# quickly you actually move. One helper so they can't drift apart.
+	if desired == anim_walk_back:
+		_play_paced(desired, walk_back_ref_speed)
+		return
+	if desired == anim_strafe_left or desired == anim_strafe_right:
+		_play_paced(desired, strafe_ref_speed)
+		return
 	# The shooting clip is re-timed to the fire rate, so it also needs replaying
 	# when the rate changes (swapping to a different weapon upgrade).
 	if desired == anim_shoot:
@@ -752,6 +775,15 @@ func set_shooting(on: bool, interval: float = 0.0) -> void:
 	_shooting = on
 	if interval > 0.0:
 		_shoot_interval = interval
+
+# Play a walk-paced clip at a rate matching the hero's real speed, so his feet
+# plant instead of sliding. Re-plays when the rate drifts (e.g. accelerating).
+func _play_paced(clip: String, ref_speed: float) -> void:
+	var spd := clampf(Vector2(velocity.x, velocity.z).length() / maxf(ref_speed, 0.1), 0.4, 4.0)
+	if clip != _current_anim or absf(spd - _paced_speed) > 0.05:
+		_paced_speed = spd
+		anim.play(clip, 0.15, spd)
+		_current_anim = clip
 
 # One full cycle of the clip per shot, so the animation keeps time with the gun:
 # rapid fire runs it fast, the heavy slug plays it slow. Clamped so a very quick
@@ -960,6 +992,15 @@ func _physics_process(delta: float) -> void:
 	if Input.is_physical_key_pressed(KEY_D):
 		input_dir.x += 1.0
 
+	# Reversing is decided here, from the actual movement input, so the clip and
+	# the speed can never disagree about it.
+	# ANY backwards component walks backwards (S, S+A, S+D) — a forward run played
+	# while retreating diagonally looks wrong. Sidesteps are pure A/D only, so
+	# forward diagonals (W+A, W+D) stay a run.
+	_stepping_back = input_dir.z > 0.0
+	_strafe_dir = 0
+	if is_zero_approx(input_dir.z) and not is_zero_approx(input_dir.x):
+		_strafe_dir = -1 if input_dir.x < 0.0 else 1
 	var direction := (transform.basis * input_dir).normalized()
 	var has_input := direction.length() > 0.01
 

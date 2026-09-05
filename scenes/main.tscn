@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=3 uid="uid://q0o4bbkpnnto"]
+[gd_scene load_steps=32 format=3 uid="uid://q0o4bbkpnnto"]
 
 [ext_resource type="Script" uid="uid://cx1j2tkv7s33g" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" uid="uid://bpsjqrqpvx2nr" path="res://scripts/player.gd" id="2_player"]
@@ -9,12 +9,12 @@
 [ext_resource type="Script" uid="uid://dnmnqgoj52ip5" path="res://scripts/head_portrait.gd" id="7_headportrait"]
 [ext_resource type="Shader" uid="uid://d0su8br5w0hx8" path="res://assets/materials/circle_portrait.gdshader" id="8_circle"]
 [ext_resource type="Script" uid="uid://dbheolt2u5fhj" path="res://scripts/island.gd" id="9_island"]
-[ext_resource type="Script" path="res://scripts/pause_menu.gd" id="10_pause"]
-[ext_resource type="Script" path="res://scripts/end_screen.gd" id="11_end"]
-[ext_resource type="PackedScene" path="res://scenes/launch_pad.tscn" id="12_pad"]
-[ext_resource type="PackedScene" path="res://scenes/moving_platform.tscn" id="13_mplat"]
-[ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="14_plat"]
-[ext_resource type="PackedScene" path="res://scenes/street.tscn" id="15_street"]
+[ext_resource type="Script" uid="uid://ddsctrt5pupwe" path="res://scripts/pause_menu.gd" id="10_pause"]
+[ext_resource type="Script" uid="uid://dwwgf2ipjo600" path="res://scripts/end_screen.gd" id="11_end"]
+[ext_resource type="PackedScene" uid="uid://thyhyfnpi0to" path="res://scenes/launch_pad.tscn" id="12_pad"]
+[ext_resource type="PackedScene" uid="uid://bkx0c32rltgu7" path="res://scenes/moving_platform.tscn" id="13_mplat"]
+[ext_resource type="PackedScene" uid="uid://c0platform001" path="res://scenes/platform.tscn" id="14_plat"]
+[ext_resource type="PackedScene" uid="uid://11u71rn7tpto" path="res://scenes/street.tscn" id="15_street"]
 [ext_resource type="PackedScene" uid="uid://c0itemicon01" path="res://scenes/item_icon.tscn" id="16_icon"]
 [ext_resource type="PackedScene" uid="uid://4m4byd8hohb3" path="res://assets/models/artifact.glb" id="17_artglb"]
 [ext_resource type="PackedScene" uid="uid://dxibqbfk7hkoa" path="res://assets/models/exotic_matter.glb" id="18_exoglb"]
@@ -39,10 +39,26 @@ ambient_light_source = 3
 tonemap_mode = 2
 ssao_enabled = true
 
+[sub_resource type="CapsuleShape3D" id="CapShape"]
+
 [sub_resource type="BoxShape3D" id="AttackBox"]
 size = Vector3(1.8, 2, 2.6)
 
-[sub_resource type="CapsuleShape3D" id="CapShape"]
+[sub_resource type="StyleBoxFlat" id="StatsPanel"]
+content_margin_left = 14.0
+content_margin_top = 12.0
+content_margin_right = 14.0
+content_margin_bottom = 12.0
+bg_color = Color(0.04, 0.05, 0.08, 0.62)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0, 0, 0, 0.45)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
 
 [sub_resource type="ShaderMaterial" id="PortraitMat"]
 shader = ExtResource("8_circle")
@@ -68,22 +84,6 @@ corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
-
-[sub_resource type="StyleBoxFlat" id="StatsPanel"]
-bg_color = Color(0.04, 0.05, 0.08, 0.62)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0, 0, 0, 0.45)
-corner_radius_top_left = 12
-corner_radius_top_right = 12
-corner_radius_bottom_right = 12
-corner_radius_bottom_left = 12
-content_margin_left = 14.0
-content_margin_top = 12.0
-content_margin_right = 14.0
-content_margin_bottom = 12.0
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
@@ -111,6 +111,7 @@ jump_velocity = 19.0
 gravity = 60.0
 air_accel = 35.0
 air_decel = 20.0
+back_speed = 2.5
 
 [node name="Model" parent="Player" instance=ExtResource("6_hero")]
 
@@ -161,7 +162,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48, 30, 48)
 
 [node name="Elder" parent="." instance=ExtResource("20_npc")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 30, 4)
-intro_lines = PackedStringArray("Alright bucko listen up. There's these Artifacts from a bygone civilization, ya see? The Artifacts look like glowing orbs, like a ball of stone with technology growing inside it.", "We don't know who put them here, or why, but they're freakin me out man. I don't like the way they float like that.", "Grab all {total} of em for me, and I'll let you into the City or somethin'. I dont know. Who cares.")
 
 [node name="Enemy1" parent="." instance=ExtResource("4_enemy")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26, 30, 12)
@@ -185,8 +185,8 @@ model_yaw_offset_deg = 0.0
 
 [node name="Enemy6_Giant" parent="." instance=ExtResource("4_enemy")]
 transform = Transform3D(3.8, 0, 0, 0, 3.8, 0, 0, 0, 3.8, 0, 40, 38)
-model_yaw_offset_deg = 0.0
 roam_radius = 50.0
+model_yaw_offset_deg = 0.0
 
 [node name="LaunchPad1" parent="." instance=ExtResource("12_pad")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 5, 20)
@@ -199,7 +199,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 5, -50)
 
 [node name="Platform1" parent="." instance=ExtResource("14_plat")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25, 10, -20)
-base_offset = 2.0
 
 [node name="Platform2" parent="." instance=ExtResource("14_plat")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -27, 10, -24)
@@ -226,7 +225,6 @@ base_offset = 1.5
 [node name="MovingPlatform2" parent="." instance=ExtResource("13_mplat")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -46, 10, 8)
 travel = Vector3(0, 8, 0)
-period = 4.0
 base_offset = 1.5
 
 [node name="MovingPlatform3" parent="." instance=ExtResource("13_mplat")]
@@ -241,8 +239,6 @@ y_offset = -2.5
 
 [node name="PortalToCity" parent="." instance=ExtResource("21_portal")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 0, 10)
-target_scene = "res://scenes/city.tscn"
-label_text = "CITY"
 reveal_on_quest_complete = true
 
 [node name="UI" type="CanvasLayer" parent="."]
@@ -418,12 +414,13 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
 color = Color(0.8, 0.05, 0.05, 0)
 
 [node name="ToastBox" type="Control" parent="UI/HUD"]
 layout_mode = 1
-anchor_left = 0.0
 anchor_top = 0.6
 anchor_right = 1.0
 anchor_bottom = 0.6
@@ -437,18 +434,20 @@ layer = 10
 
 [node name="PauseMenu" type="Control" parent="PauseLayer"]
 process_mode = 3
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource("10_pause")
 
 [node name="Dim" type="ColorRect" parent="PauseLayer/PauseMenu"]
-anchors_preset = 15
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0, 0, 0, 0.55)
 
 [node name="Main" type="VBoxContainer" parent="PauseLayer/PauseMenu"]
+layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
@@ -462,42 +461,50 @@ grow_vertical = 2
 theme_override_constants/separation = 12
 
 [node name="Paused" type="Label" parent="PauseLayer/PauseMenu/Main"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 48
 text = "PAUSED"
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 48
 
 [node name="Resume" type="Button" parent="PauseLayer/PauseMenu/Main"]
 custom_minimum_size = Vector2(240, 44)
-text = "Resume"
+layout_mode = 2
 theme_override_font_sizes/font_size = 22
+text = "Resume"
 
 [node name="Save" type="Button" parent="PauseLayer/PauseMenu/Main"]
 custom_minimum_size = Vector2(240, 44)
-text = "Save Game"
+layout_mode = 2
 theme_override_font_sizes/font_size = 22
+text = "Save Game"
 
 [node name="Load" type="Button" parent="PauseLayer/PauseMenu/Main"]
 custom_minimum_size = Vector2(240, 44)
-text = "Load Game"
+layout_mode = 2
 theme_override_font_sizes/font_size = 22
+text = "Load Game"
 
 [node name="Settings" type="Button" parent="PauseLayer/PauseMenu/Main"]
 custom_minimum_size = Vector2(240, 44)
-text = "Settings"
+layout_mode = 2
 theme_override_font_sizes/font_size = 22
+text = "Settings"
 
 [node name="Restart" type="Button" parent="PauseLayer/PauseMenu/Main"]
 custom_minimum_size = Vector2(240, 44)
-text = "Restart"
+layout_mode = 2
 theme_override_font_sizes/font_size = 22
+text = "Restart"
 
 [node name="QuitTitle" type="Button" parent="PauseLayer/PauseMenu/Main"]
 custom_minimum_size = Vector2(240, 44)
-text = "Quit to Title"
+layout_mode = 2
 theme_override_font_sizes/font_size = 22
+text = "Quit to Title"
 
 [node name="SettingsPanel" type="VBoxContainer" parent="PauseLayer/PauseMenu"]
 visible = false
+layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
@@ -511,49 +518,57 @@ grow_vertical = 2
 theme_override_constants/separation = 16
 
 [node name="SettingsTitle" type="Label" parent="PauseLayer/PauseMenu/SettingsPanel"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
 text = "SETTINGS"
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 36
 
 [node name="VolumeRow" type="HBoxContainer" parent="PauseLayer/PauseMenu/SettingsPanel"]
+layout_mode = 2
 theme_override_constants/separation = 16
 
 [node name="Label" type="Label" parent="PauseLayer/PauseMenu/SettingsPanel/VolumeRow"]
 custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
 text = "Master Volume"
 
 [node name="VolumeSlider" type="HSlider" parent="PauseLayer/PauseMenu/SettingsPanel/VolumeRow"]
 custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
 size_flags_vertical = 1
-min_value = 0.0
 max_value = 1.0
 step = 0.05
 value = 0.8
 
 [node name="MusicRow" type="HBoxContainer" parent="PauseLayer/PauseMenu/SettingsPanel"]
+layout_mode = 2
 theme_override_constants/separation = 16
 
 [node name="Label" type="Label" parent="PauseLayer/PauseMenu/SettingsPanel/MusicRow"]
 custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
 text = "Music Volume"
 
 [node name="MusicSlider" type="HSlider" parent="PauseLayer/PauseMenu/SettingsPanel/MusicRow"]
 custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
 size_flags_vertical = 1
-min_value = 0.0
 max_value = 1.0
 step = 0.05
 value = 0.7
 
 [node name="SensRow" type="HBoxContainer" parent="PauseLayer/PauseMenu/SettingsPanel"]
+layout_mode = 2
 theme_override_constants/separation = 16
 
 [node name="Label" type="Label" parent="PauseLayer/PauseMenu/SettingsPanel/SensRow"]
 custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
 text = "Mouse Sensitivity"
 
 [node name="SensSlider" type="HSlider" parent="PauseLayer/PauseMenu/SettingsPanel/SensRow"]
 custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
 size_flags_vertical = 1
 min_value = 0.2
 max_value = 3.0
@@ -561,20 +576,25 @@ step = 0.1
 value = 1.0
 
 [node name="FullRow" type="HBoxContainer" parent="PauseLayer/PauseMenu/SettingsPanel"]
+layout_mode = 2
 theme_override_constants/separation = 16
 
 [node name="Label" type="Label" parent="PauseLayer/PauseMenu/SettingsPanel/FullRow"]
 custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
 text = "Fullscreen"
 
 [node name="FullCheck" type="CheckButton" parent="PauseLayer/PauseMenu/SettingsPanel/FullRow"]
+layout_mode = 2
 
 [node name="SettingsBack" type="Button" parent="PauseLayer/PauseMenu/SettingsPanel"]
 custom_minimum_size = Vector2(160, 42)
+layout_mode = 2
 text = "Back"
 
 [node name="SlotsPanel" type="VBoxContainer" parent="PauseLayer/PauseMenu"]
 visible = false
+layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
@@ -588,24 +608,29 @@ grow_vertical = 2
 theme_override_constants/separation = 14
 
 [node name="SlotsTitle" type="Label" parent="PauseLayer/PauseMenu/SlotsPanel"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
 text = "SAVE GAME"
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 36
 
 [node name="Slot1" type="Button" parent="PauseLayer/PauseMenu/SlotsPanel"]
 custom_minimum_size = Vector2(380, 46)
+layout_mode = 2
 text = "Slot 1"
 
 [node name="Slot2" type="Button" parent="PauseLayer/PauseMenu/SlotsPanel"]
 custom_minimum_size = Vector2(380, 46)
+layout_mode = 2
 text = "Slot 2"
 
 [node name="Slot3" type="Button" parent="PauseLayer/PauseMenu/SlotsPanel"]
 custom_minimum_size = Vector2(380, 46)
+layout_mode = 2
 text = "Slot 3"
 
 [node name="SlotsBack" type="Button" parent="PauseLayer/PauseMenu/SlotsPanel"]
 custom_minimum_size = Vector2(160, 42)
+layout_mode = 2
 text = "Back"
 
 [node name="EndLayer" type="CanvasLayer" parent="."]
@@ -614,6 +639,7 @@ layer = 20
 
 [node name="EndScreen" type="Control" parent="EndLayer"]
 process_mode = 3
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -621,12 +647,13 @@ script = ExtResource("11_end")
 show_victory = false
 
 [node name="Dim" type="ColorRect" parent="EndLayer/EndScreen"]
-anchors_preset = 15
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0, 0, 0, 0.7)
 
 [node name="VBox" type="VBoxContainer" parent="EndLayer/EndScreen"]
+layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
@@ -640,16 +667,19 @@ grow_vertical = 2
 theme_override_constants/separation = 18
 
 [node name="Title" type="Label" parent="EndLayer/EndScreen/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 60
 text = "GAME OVER"
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 60
 
 [node name="PlayAgain" type="Button" parent="EndLayer/EndScreen/VBox"]
 custom_minimum_size = Vector2(260, 48)
-text = "Play Again"
+layout_mode = 2
 theme_override_font_sizes/font_size = 24
+text = "Play Again"
 
 [node name="QuitTitle" type="Button" parent="EndLayer/EndScreen/VBox"]
 custom_minimum_size = Vector2(260, 48)
-text = "Quit to Title"
+layout_mode = 2
 theme_override_font_sizes/font_size = 24
+text = "Quit to Title"

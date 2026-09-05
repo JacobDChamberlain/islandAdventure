@@ -130,6 +130,16 @@ func _build_foliage() -> void:
 	# Meshy plant models (rigged, but rendered static via MultiMesh) replace most trees.
 	var plant1 := _plant_mesh("res://assets/models/plant_1.glb")
 	var plant2 := _plant_mesh("res://assets/models/plant_2.glb")
+	# Wind. Rocks are pointedly excluded. Heights are each plant's own, so the
+	# bend starts in the right place for a grass tuft and for a 20 m tree alike.
+	var bush := _make_bush()
+	var grass := _make_grass()
+	Foliage.apply_sway(tree, 0.07, 3.0)
+	Foliage.apply_sway(bush, 0.05, 0.8)
+	Foliage.apply_sway(grass, 0.06, 0.5)
+	for p in [plant1, plant2]:
+		if p != null:
+			Foliage.apply_sway(p, 0.05, 1.7)
 	#         mesh,     count,  min_h, max_h, max_slope, s_min, s_max, y_off, rng, shadows, col_shape, col_offset
 	_scatter(tree,          8, 1.8, 11.0, 1.3, 0.9, 1.9, 0.0, rng, true, trunk_col, Vector3(0, 2.0, 0))
 	_scatter(tree,          2, 1.8,  9.0, 1.0, 2.6, 4.0, 0.0, rng, true, trunk_col, Vector3(0, 2.0, 0))
@@ -145,9 +155,9 @@ func _build_foliage() -> void:
 		_scatter(p, 10, 1.8, 11.0, 1.6, 2.8, 5.0,  0.0, rng, true, plant_col, pcol_off)  # medium (~5-8.5m)
 		_scatter(p,  4, 1.8, 11.0, 1.4, 6.0, 9.0,  0.0, rng, true, plant_col, pcol_off)  # big (~10-15m)
 		_scatter(p,  2, 1.8,  9.0, 1.0, 13.0, 19.0, 0.0, rng, true, plant_col, pcol_off) # FUCKING MASSIVE (~22-32m)
-	_scatter(_make_bush(), 300, 1.2, 12.0, 3.0, 0.6, 1.3, 0.0, rng)
+	_scatter(bush, 300, 1.2, 12.0, 3.0, 0.6, 1.3, 0.0, rng)
 	_scatter(_make_rock(), 150, 0.6, 20.0, 6.0, 0.5, 1.9, -0.2, rng, true, rock_col, Vector3(0, 0.3, 0))
-	_scatter(_make_grass(),1300, 1.2, 9.0, 2.5, 0.6, 1.4, 0.0, rng, false)   # grass: no shadows
+	_scatter(grass,1300, 1.2, 9.0, 2.5, 0.6, 1.4, 0.0, rng, false)   # grass: no shadows
 
 # Pull the static mesh out of a (possibly rigged) GLB so it can be MultiMesh'd.
 func _plant_mesh(path: String) -> Mesh:

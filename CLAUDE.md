@@ -259,6 +259,16 @@ is the opposite of what's wanted. `scripts/arm_droop.gd` does that instead —
 a plain node at `process_priority` 500, *not* a `SkeletonModifier3D`, whose
 writes the AnimationPlayer overwrites because it poses the skeleton afterwards.
 
+**Wind** (`assets/materials/foliage_sway.gdshader` + `scripts/foliage.gd`): the
+foliage is MultiMesh, so nothing can be animated per-instance — a vertex shader
+moves them all for free, and the shadow pass reuses it so shadows sway too. Two
+details make it read as wind: the offset is masked by height SQUARED (trunks stay
+planted, canopies move) and the phase comes from `MODEL_MATRIX[3]`, each
+instance's world position, so neighbours are out of step. `Foliage.apply_sway()`
+WRAPS each existing surface material rather than setting a `material_override`,
+which would flatten a tree's trunk and canopy to one colour. Rocks are excluded
+on purpose.
+
 ## Gotchas
 
 - `.ogg`/`.wav` default to looping on import — SFX force loop off in `sfx.gd`.

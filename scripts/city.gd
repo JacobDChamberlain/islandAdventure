@@ -179,6 +179,11 @@ func _build_city() -> void:
 	# Meshy plants (static via MultiMesh) replace most park trees.
 	var plant1 := _plant_mesh("res://assets/models/plant_1.glb")
 	var plant2 := _plant_mesh("res://assets/models/plant_2.glb")
+	# Same wind as the island's park trees.
+	Foliage.apply_sway(tree, 0.07, 3.0)
+	for p in [plant1, plant2]:
+		if p != null:
+			Foliage.apply_sway(p, 0.05, 1.7)
 	var plant1_xf: Array[Transform3D] = []
 	var plant2_xf: Array[Transform3D] = []
 
