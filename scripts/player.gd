@@ -42,6 +42,10 @@ var _cine_blend: float = 0.0 # 0..1 toward the zoomed-in conversation framing
 @export var kick_anim_speed: float = 1.7        # snappier kick
 @export var kick_anim_start: float = 0.12       # skip this much of the kick's wind-up
 
+# --- Arm droop: Meshy rigged him with his arms raised, so they're lowered at
+#     runtime on top of every clip (see scripts/arm_droop.gd). 0 = leave as-is. ---
+@export var arm_droop_deg: float = 25.0
+
 # --- Visual model (the imported Meshy hero) ---
 @export var model_target_height: float = 1.9    # how tall the hero should appear (world units)
 @export var model_yaw_offset_deg: float = 180.0 # spin the model if it faces the wrong way
@@ -83,6 +87,24 @@ var _cine_blend: float = 0.0 # 0..1 toward the zoomed-in conversation framing
 @export var anim_hit: String = "Hit_Reaction"          # played when you take a hit
 @export var anim_dance: String = "All_Night_Dance"     # G
 @export var anim_dance2: String = "Breakdance_1990"    # H
+# Retargeted from Mixamo FBXs by tools/retarget_mixamo.gd — proof his rig takes
+# outside animations without Blender. Loaded AFTER _strip_root_motion(), because
+# stripping would freeze the hips position these clips rely on.
+@export var retargeted_anims: Dictionary = {
+	"SneakWalk": "res://assets/animations/sneak_walk.res",
+	"StandToCrouch": "res://assets/animations/stand_to_crouch.res",
+	"CrouchToStand": "res://assets/animations/crouch_to_stand.res",
+	"WalkBack": "res://assets/animations/walk_back.res",
+	"DrawGun": "res://assets/animations/draw_gun.res",
+	"Shooting": "res://assets/animations/shooting.res",
+}
+@export var anim_sneak: String = "SneakWalk"
+@export var anim_stand_to_crouch: String = "StandToCrouch"
+@export var anim_crouch_to_stand: String = "CrouchToStand"
+@export var anim_walk_back: String = "WalkBack"
+@export var anim_draw_gun: String = "DrawGun"
+@export var anim_shoot: String = "Shooting"
+@export var crouch_speed: float = 4.5                 # sneaking is slow
 @export var jump_anim_speed: float = 1.6   # play the jump clip faster so it reads
 @export var jump_anim_start: float = 0.25  # skip this many seconds of jump wind-up
 @export var sprint_jump_anim_speed: float = 1.5 # speed of the sprint run-and-jump
@@ -103,6 +125,11 @@ var _invuln: float = 0.0
 var _spawn_point: Vector3 = Vector3.ZERO
 var _attacking: bool = false
 var _dancing: bool = false
+var _crouching: bool = false
+var _shooting: bool = false   # set by weapon.gd while you hold fire
+var _crouch_posed: bool = false   # parked on the last frame of the crouch transition
+var _shoot_interval: float = 0.0  # seconds between shots, reported by weapon.gd
+var _shoot_speed: float = 1.0     # playback rate that makes one cycle = one shot
 var _punch_toggle: bool = false   # alternate the two punch clips
 
 # --- Lantern state ---
@@ -149,6 +176,7 @@ func _ready() -> void:
 	# Auto-scale and plant the hero model so it fits the collision capsule.
 	_fit_model()
 	_setup_animation()
+	_setup_arm_droop()
 	_setup_grapple_visuals()
 	_setup_lantern()
 	_setup_weapon()
@@ -266,6 +294,19 @@ func _process(delta: float) -> void:
 	_lantern.light_energy = lantern_energy * pulse
 	for s in _glow_slots:
 		s["glow"].emission_energy_multiplier = lantern_glow * pulse
+
+# Hang a SkeletonModifier3D off his skeleton so it runs after the animation has
+# posed him — see arm_droop.gd for why the import-side fix can't do this.
+func _setup_arm_droop() -> void:
+	if model == null or is_zero_approx(arm_droop_deg):
+		return
+	var skels := model.find_children("*", "Skeleton3D", true, false)
+	if skels.is_empty():
+		return
+	var droop = load("res://scripts/arm_droop.gd").new()
+	droop.name = "ArmDroop"
+	droop.droop_deg = arm_droop_deg
+	skels[0].add_child(droop)
 
 # --- Blaster -----------------------------------------------------------------
 
@@ -458,7 +499,24 @@ func _setup_animation() -> void:
 		if anim.has_animation(clip):
 			anim.get_animation(clip).loop_mode = Animation.LOOP_NONE
 	_strip_root_motion()
+	_load_retargeted()   # after stripping: these keep their hips motion
 	anim.animation_finished.connect(_on_anim_finished)
+
+# Pull in animations that didn't come from the .glb.
+func _load_retargeted() -> void:
+	var lib := anim.get_animation_library("")
+	if lib == null:
+		return
+	for clip_name in retargeted_anims:
+		var path: String = retargeted_anims[clip_name]
+		if not ResourceLoader.exists(path) or lib.has_animation(clip_name):
+			continue
+		var clip := load(path) as Animation
+		if clip == null:
+			continue
+		# The two transitions play once and hold their final pose; the rest loop.
+		clip.loop_mode = Animation.LOOP_NONE if clip_name in [anim_stand_to_crouch, anim_crouch_to_stand, anim_draw_gun] else Animation.LOOP_LINEAR
+		lib.add_animation(clip_name, clip)
 
 func _strip_root_motion() -> void:
 	# Freeze every bone POSITION track to its first frame so clips play "in place".
@@ -497,11 +555,46 @@ func _play_oneshot(clip: String, speed: float = 1.0, start: float = 0.0) -> void
 func _update_animation() -> void:
 	if anim == null or _anim_locked:
 		return
+	var moving := Vector2(velocity.x, velocity.z).length() > 0.6
 	var desired := anim_idle
-	if not is_on_floor():
+	if _crouching:
+		if not moving:
+			# Standing still while crouched: park on the LAST frame of the
+			# stand-to-crouch clip. Simply returning here left the looping sneak
+			# walk running on the spot.
+			# Park on the LAST frame of the stand-to-crouch clip. Needs its own
+			# flag: the clip ends instantly when seeked there, which clears
+			# _current_anim, so keying off that replayed it every single frame.
+			if not _crouch_posed:
+				_crouch_posed = true
+				anim.play(anim_stand_to_crouch, 0.15)
+				var pose := anim.get_animation(anim_stand_to_crouch)
+				if pose != null:
+					anim.seek(pose.length, true)
+				_current_anim = anim_stand_to_crouch
+			return
+		_crouch_posed = false
+		desired = anim_sneak
+	elif _shooting and is_on_floor() and anim.has_animation(anim_shoot):
+		desired = anim_shoot
+	elif not is_on_floor():
 		desired = anim_jump
-	elif Vector2(velocity.x, velocity.z).length() > 0.6:
-		desired = anim_run_fast if _sprinting else anim_run
+	elif moving:
+		# Reversing gets its own clip rather than running backwards on the spot.
+		var back := Input.is_physical_key_pressed(KEY_S) and not Input.is_physical_key_pressed(KEY_W)
+		if back and anim.has_animation(anim_walk_back):
+			desired = anim_walk_back
+		else:
+			desired = anim_run_fast if _sprinting else anim_run
+	# The shooting clip is re-timed to the fire rate, so it also needs replaying
+	# when the rate changes (swapping to a different weapon upgrade).
+	if desired == anim_shoot:
+		var spd := _shoot_anim_speed()
+		if desired != _current_anim or absf(spd - _shoot_speed) > 0.01:
+			_shoot_speed = spd
+			anim.play(desired, 0.1, spd)
+			_current_anim = desired
+		return
 	if desired == _current_anim or not anim.has_animation(desired):
 		return
 	if desired == anim_jump:
@@ -565,6 +658,9 @@ func _mesh_aabb() -> AABB:
 
 func _try_jump() -> void:
 	_cancel_dance()
+	if _crouching:
+		_toggle_crouch()      # stand up rather than hopping in a crouch
+		return
 	if jumps_left > 0:
 		velocity.y = jump_velocity
 		jumps_left -= 1
@@ -635,6 +731,41 @@ func _attack(kind: String) -> void:
 	if not is_inside_tree():
 		return
 	_attacking = false
+
+# Crouch/sneak. The transitions are one-shots that hold their last frame, so the
+# crouched idle is simply "StandToCrouch, finished" — no separate pose needed.
+func _toggle_crouch() -> void:
+	if not is_on_floor() or _attacking:
+		return
+	_cancel_dance()
+	_crouching = not _crouching
+	_crouch_posed = false
+	_sprinting = false
+	_play_oneshot(anim_stand_to_crouch if _crouching else anim_crouch_to_stand, 1.2)
+
+func is_crouching() -> bool:
+	return _crouching
+
+# The weapon reports whether you're holding fire, so the shooting clip loops for
+# as long as the stream does instead of restarting on every pellet.
+func set_shooting(on: bool, interval: float = 0.0) -> void:
+	_shooting = on
+	if interval > 0.0:
+		_shoot_interval = interval
+
+# One full cycle of the clip per shot, so the animation keeps time with the gun:
+# rapid fire runs it fast, the heavy slug plays it slow. Clamped so a very quick
+# mode doesn't turn him into a blur.
+func _shoot_anim_speed() -> float:
+	var clip := anim.get_animation(anim_shoot)
+	if clip == null or _shoot_interval <= 0.0 or clip.length <= 0.0:
+		return 1.0
+	return clampf(clip.length / _shoot_interval, 0.25, 10.0)
+
+# Played by the weapon when you draw it.
+func play_draw_anim() -> void:
+	if is_on_floor() and not _crouching:
+		_play_oneshot(anim_draw_gun, 1.4)
 
 # Toggle a dance emote (only while idle on the ground). Any movement cancels it.
 func _toggle_dance(clip: String) -> void:
@@ -741,7 +872,7 @@ func _input(event: InputEvent) -> void:
 			_attack("kick")
 		elif event.button_index == MOUSE_BUTTON_MIDDLE:
 			_fire_grapple()
-	# Keyboard alternatives: J punch, K kick, G/H dance, Q grapple, L lantern.
+	# Keyboard alternatives: J punch, K kick, G/H/M dance, Q grapple, L lantern.
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
 			KEY_J: _attack("punch")
@@ -749,6 +880,11 @@ func _input(event: InputEvent) -> void:
 			KEY_G: _toggle_dance(anim_dance)
 			KEY_H: _toggle_dance(anim_dance2)
 			KEY_Q: _fire_grapple()
+			# Shift crouches — but only with the gun away, since Shift is the
+			# scope while it's drawn.
+			KEY_SHIFT:
+				if weapon == null or not weapon.drawn:
+					_toggle_crouch()
 	# Jump on the moment Space is pressed (not while held), so double-jump works.
 	# Space while grappling lets go early (with the launch pop).
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE:
@@ -837,7 +973,11 @@ func _physics_process(delta: float) -> void:
 		velocity.z = move_toward(velocity.z, 0.0, roll_slide_decel * delta)
 	else:
 		# Where we WANT the horizontal velocity to be this frame (faster sprinting).
-		var current_speed := sprint_speed if _sprinting else speed
+		var current_speed := speed
+		if _crouching:
+			current_speed = crouch_speed      # sneaking is deliberately slow
+		elif _sprinting:
+			current_speed = sprint_speed
 		var target_x := direction.x * current_speed
 		var target_z := direction.z * current_speed
 		# On the ground we snap; in the air we ease so momentum carries the arc.

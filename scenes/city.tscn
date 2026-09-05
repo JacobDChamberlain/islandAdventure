@@ -441,7 +441,7 @@ offset_bottom = -10.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 5
 theme_override_font_sizes/font_size = 18
-text = "WASD move  ·  Dbl-tap W sprint  ·  Space jump  ·  LMB punch  ·  RMB kick (fly-kick midair)  ·  Stomp  ·  G/H dance  ·  L light  ·  1 gun (hold LMB fire, Shift scope)  ·  Esc pause"
+text = "WASD move  ·  Dbl-tap W sprint  ·  Space jump  ·  LMB punch  ·  RMB kick (fly-kick midair)  ·  Stomp  ·  G/H dance  ·  Shift crouch  ·  L light  ·  1 gun (hold LMB fire, Shift scope)  ·  Esc pause"
 
 [node name="DamageFlash" type="ColorRect" parent="UI/HUD"]
 layout_mode = 1

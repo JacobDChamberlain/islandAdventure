@@ -209,6 +209,8 @@ func toggle_drawn() -> void:
 		return
 	drawn = not drawn
 	Sfx.ui_select()
+	if drawn and _player.has_method("play_draw_anim"):
+		_player.play_draw_anim()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo \
@@ -238,6 +240,8 @@ func _process(delta: float) -> void:
 
 	# Hold to fire — the whole point of the stream.
 	var holding := is_active() and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	if _player.has_method("set_shooting"):
+		_player.set_shooting(holding and Game.ammo > 0, float(mode()["interval"]))
 	if bool(mode().get("beam", false)):
 		_beam_step(delta, holding)
 		return

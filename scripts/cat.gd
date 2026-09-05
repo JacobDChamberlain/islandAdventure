@@ -12,7 +12,7 @@ const WALK_SRC := "Armature|Unreal Take|baselayer"
 @export_multiline var greetings: PackedStringArray = ["Mow.", "Mow?"]
 # Rare comeback. Gated on the quest being underway, since it answers something
 # Spencer said — before that, you haven't met him and the line makes no sense.
-@export_multiline var rare_greeting: String = "Mrow.\nYou spoke with Spencer? That dirty human lies. I owe him nothing."
+@export_multiline var rare_greeting: String = "Mrow.\nYou spoke with Spencer? The dirty human lies. I owe him nothing."
 @export var rare_greeting_chance: float = 0.08
 @export var grapple_price: int = 25
 @export var gun_price: int = 40
