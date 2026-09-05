@@ -31,6 +31,7 @@ const WALK_SRC := "Armature|Unreal Take|baselayer"
 @export var fetch_artifacts: bool = false    # artifacts are YOUR job by default
 @export var fetch_reach: float = 1.1         # she must actually reach an item to take it
 @export var fetch_speed: float = 7.0         # trot speed when going for a pickup
+@export var fetch_give_up: float = 4.0       # seconds of no progress before she abandons an item
 @export var pad_trigger_radius: float = 2.2  # how close she must be to a launch pad
 @export var cat_gravity: float = 30.0
 @export var pad_play_radius: float = 9.0     # stay near a pad and she'll keep bouncing with you
@@ -56,6 +57,9 @@ var _talking: bool = false
 var _menu: CanvasLayer = null   # the menu window (scripts/shop_menu.gd)
 var _following: bool = false    # out for a walk with the player
 var _fetch_target: Node3D = null
+var _fetch_t: float = 0.0        # time spent on the current target
+var _fetch_best: float = 999.0   # closest she has got to it
+var _unreachable: Dictionary = {}  # instance ids she has given up on
 var _air_vel: Vector3 = Vector3.ZERO
 var _airborne: bool = false
 var _pad_cd: float = 0.0
@@ -227,6 +231,7 @@ func _enter_walk() -> void:
 		_anim.play("walk")
 
 func _process(delta: float) -> void:
+	_update_prompt()
 	if _talking:
 		return   # sit still while the menu/dialogue is up
 	if _pad_cd > 0.0:
@@ -339,8 +344,20 @@ func _follow_step(delta: float) -> void:
 		if fto.length() <= fetch_reach:
 			if _fetch_target.has_method("collect"):
 				_fetch_target.collect()
-			_fetch_target = null
+			_clear_fetch()
 		else:
+			# Give up on anything she can't actually get to — a coin sealed in a
+			# building, up on a roof, over a cliff. Without this she walks at it
+			# for ever. (The stuck rescue below never ran here: this branch
+			# returns before it.)
+			_fetch_t += delta
+			if fto.length() < _fetch_best - 0.3:
+				_fetch_best = fto.length()
+				_fetch_t = 0.0
+			if _fetch_t > fetch_give_up:
+				_unreachable[_fetch_target.get_instance_id()] = true
+				_clear_fetch()
+				return
 			if _sitting:
 				_enter_walk()
 			var fdir := _steer_around(fto.normalized(), delta)
@@ -428,15 +445,20 @@ func _steer_around(dir: Vector3, delta: float) -> Vector3:
 
 # Choose the nearest thing worth walking to. She keeps the same target until she
 # reaches it (or it vanishes), so she doesn't dither between two coins.
+func _clear_fetch() -> void:
+	_fetch_target = null
+	_fetch_t = 0.0
+	_fetch_best = 999.0
+
 func _pick_fetch_target(player: Node3D) -> void:
 	if _fetch_target != null and is_instance_valid(_fetch_target):
 		# Give up if chasing it would leave the player behind.
 		if _fetch_target.global_position.distance_to(player.global_position) > fetch_radius * 2.5:
-			_fetch_target = null
+			_clear_fetch()
 		else:
 			return
 	else:
-		_fetch_target = null
+		_clear_fetch()
 	var groups := ["coin", "exotic", "ammo"]
 	if fetch_artifacts:
 		groups.append("artifact")
@@ -445,10 +467,14 @@ func _pick_fetch_target(player: Node3D) -> void:
 		for item in get_tree().get_nodes_in_group(g):
 			if not is_instance_valid(item) or not item.has_method("collect"):
 				continue
+			if _unreachable.has(item.get_instance_id()):
+				continue
 			var d: float = item.global_position.distance_to(global_position)
 			if d < best:
 				best = d
 				_fetch_target = item
+	_fetch_t = 0.0
+	_fetch_best = 999.0
 
 func _face(dir: Vector3, delta: float) -> void:
 	if _model == null or dir.length() < 0.01:
@@ -457,6 +483,15 @@ func _face(dir: Vector3, delta: float) -> void:
 	_model.rotation.y = lerp_angle(_model.rotation.y, target, 1.0 - pow(0.001, delta))
 
 # --- Shopkeeper interaction ---------------------------------------------------
+
+# Only the nearest interactable advertises itself, so standing by the car doesn't
+# show two "Press E" labels for a key that can only do one of them.
+func _update_prompt() -> void:
+	if prompt == null:
+		return
+	var p := get_tree().get_first_node_in_group("player") as Node3D
+	prompt.visible = _player_near and not _talking and not Dialogue.active \
+		and p != null and _wins_interact(p)
 
 func _on_zone_entered(body: Node3D) -> void:
 	if body.is_in_group("player"):

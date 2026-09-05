@@ -99,6 +99,12 @@ and exposes **`height_at(x, z)`** — the source of truth for ground height.
   the Elder's first conversation, which emits `quest_started`). The win no longer
   fires on collecting the last artifact — the NPC calls `Game.complete_quest()` after
   its backflip. Save restores `quest_active` and re-emits `quest_started`.
+- **Drops step out of buildings**: a head can die inside a building footprint,
+  and a drop's landing height comes from `height_at()`, which is the STREET
+  height and knows nothing about walls — so loot could settle where nobody can
+  reach it, player included. `PickupUtil.nudge_into_the_open()` looks for a
+  ceiling overhead (streets and island terrain have open sky; tree canopies
+  aren't colliders) and walks it out to the nearest open spot.
 - **Enemy drops** (`exotic_matter.gd`, `coin.gd`) spawn mid-air and **pop out in an
   arc** (`_vel` + `drop_gravity`, integrated in `_process` until they reach
   `height_at()`), then can't be collected for `arm_delay` seconds — so drops are
@@ -166,7 +172,11 @@ and exposes **`height_at(x, z)`** — the source of truth for ground height.
 - **Taking Biscuit for a walk** (`cat.gd` `_following`): she trots at heel
   (`follow_speed`/`follow_distance`, teleporting to catch up past
   `follow_teleport_dist`) and hoovers up coins, Exotic Matter and ammo within
-  `fetch_radius`. She calls each pickup's public `collect()` — the same path
+  `fetch_radius`, giving up on anything she can't reach after `fetch_give_up`
+  seconds of no progress and blacklisting it (a coin behind a wall would
+  otherwise loop her for ever — the stuck rescue below never covered this,
+  because the fetch branch returns before it). She calls each pickup's public
+  `collect()` — the same path
   walking over it takes — so fetching can never drift from normal pickup
   behaviour. Artifacts are excluded unless `fetch_artifacts` is on. Because the
   menu lives on her, a walk also means a **portable shop**. She has **no

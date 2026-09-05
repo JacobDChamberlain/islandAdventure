@@ -385,6 +385,10 @@ func _forward() -> Vector3:
 func _physics_process(delta: float) -> void:
 	# Belt-and-braces: the city track is a driving-only track, so it must never be
 	# audible on foot no matter which way you left the car (Esc, death, debug jump).
+	# Same rule as the cat: whoever is nearest owns the E key, so only they prompt.
+	if prompt != null:
+		prompt.visible = _driver == null and _near != null and is_instance_valid(_near) \
+			and not Dialogue.active and not Game.cinematic and _wins_interact(_near)
 	if _level_music != null and _music_started:
 		_level_music.stream_paused = (_driver == null)
 	# The hero's lantern is hidden with him inside the car, so the CAR carries the

@@ -238,6 +238,13 @@ func lantern_is_on() -> bool:
 func is_attacking() -> bool:
 	return _attacking
 
+# Any melee moment the gun should sit out: his own punches/kicks, plus the hit
+# reaction and death clips — a pistol held through those reads badly.
+func is_busy_melee() -> bool:
+	if _attacking:
+		return true
+	return _anim_locked and (_current_anim == anim_hit or _current_anim == anim_death)
+
 # L lives here rather than in _input because _input bails out while driving, and
 # the lantern should still toggle from the driver's seat.
 func _unhandled_input(event: InputEvent) -> void:

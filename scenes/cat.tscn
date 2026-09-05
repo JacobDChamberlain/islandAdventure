@@ -26,8 +26,8 @@ shape = SubResource("Zone")
 [node name="Prompt" type="Label3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3, 0)
 billboard = 1
-pixel_size = 0.012
+pixel_size = 0.005
 modulate = Color(0.7, 1, 0.9, 1)
-outline_size = 14
-font_size = 80
+outline_size = 12
+font_size = 40
 text = "Press E to talk"

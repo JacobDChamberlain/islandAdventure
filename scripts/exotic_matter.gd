@@ -47,6 +47,8 @@ func _process(delta: float) -> void:
 		ground = _island.height_at(global_position.x, global_position.z) + rest_height
 	if global_position.y <= ground and _vel.y <= 0.0:
 		global_position.y = ground
+		# Landed inside a building? Nobody could ever reach it there — step it out.
+		PickupUtil.nudge_into_the_open(self, _island, rest_height)
 		_grounded = true
 		_base_y = position.y
 

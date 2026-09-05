@@ -217,7 +217,7 @@ func _process(delta: float) -> void:
 
 	if _gun != null and is_instance_valid(_gun):
 		_gun.visible = Game.has_gun and drawn and _player.visible \
-			and not (_player.has_method("is_attacking") and _player.is_attacking())
+			and not (_player.has_method("is_busy_melee") and _player.is_busy_melee())
 
 	# Scope: pull the FOV in while Shift is held with the gun out.
 	scoped = is_active() and Input.is_physical_key_pressed(KEY_SHIFT)
