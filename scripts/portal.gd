@@ -18,7 +18,9 @@ func _ready() -> void:
 	if has_node("Label"):
 		($Label as Label3D).text = label_text
 	body_entered.connect(_on_body_entered)
-	if reveal_on_quest_complete:
+	# Once this world's quest is done the portal stays open for good — coming
+	# back through it shouldn't find it sealed again.
+	if reveal_on_quest_complete and not Game.quest_done:
 		_set_hidden(true)
 		Game.all_artifacts_collected.connect(_reveal)
 	if snap_to_ground:

@@ -26,8 +26,10 @@ func _ready() -> void:
 	_env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	_update_day_night()
 
-	# Fresh run (count the artifacts in the level), then apply a loaded save if any.
-	Game.new_run(get_tree().get_nodes_in_group("artifact").size())
+	# Arrive in THIS world: its own artifacts/quest come back, your coins and
+	# Exotic Matter carry over from wherever you've been.
+	Game.enter_world(scene_file_path, get_tree().get_nodes_in_group("artifact").size())
+	_restore_world_artifacts()
 	SaveManager.apply_pending()
 
 	_scatter_pickups()
@@ -87,6 +89,15 @@ func _update_day_night() -> void:
 	# Ambient (kept bright enough at night to still see).
 	_env.ambient_light_color = Color(0.16, 0.19, 0.32).lerp(Color(0.6, 0.64, 0.7), daylight)
 	_env.ambient_light_energy = lerpf(0.4, 1.0, daylight)
+
+# Artifacts already found in this world stay found, and if its hunt was underway
+# the remaining ones are revealed again.
+func _restore_world_artifacts() -> void:
+	for a in get_tree().get_nodes_in_group("artifact"):
+		if String(a.name) in Game.collected_artifacts:
+			a.queue_free()
+	if Game.quest_active:
+		Game.quest_started.emit()
 
 # --- Blaster pickups ----------------------------------------------------------
 # Ammo crates and weapon upgrades are placed procedurally rather than authored

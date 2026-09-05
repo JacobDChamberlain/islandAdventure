@@ -40,10 +40,13 @@ func save_to_slot(slot: int) -> void:
 		"exotic": Game.exotic_matter,
 		"coins": Game.coins,
 		"quest": Game.quest_active,
+		"quest_done": Game.quest_done,
 		"has_grapple": Game.has_grapple,
 		"has_gun": Game.has_gun,
 		"ammo": Game.ammo,
 		"weapon_mode": Game.weapon_mode,
+		"world_state": Game.world_state,
+		"current_world": Game.current_world,
 	}
 	var f := FileAccess.open(_slot_path(slot), FileAccess.WRITE)
 	if f:
@@ -83,6 +86,9 @@ func apply_pending() -> void:
 		Game.grant_gun()   # via grant_gun so the level puts its blaster pickups out
 	Game.ammo = int(data.get("ammo", 0))
 	Game.set_weapon_mode(str(data.get("weapon_mode", "pellet")))
+	Game.world_state = data.get("world_state", {})
+	Game.current_world = str(data.get("current_world", Game.current_world))
+	Game.quest_done = bool(data.get("quest_done", Game.quest_done))
 	Game.collected_artifacts = data.get("collected", [])
 	for artifact in tree.get_nodes_in_group("artifact"):
 		if String(artifact.name) in Game.collected_artifacts:

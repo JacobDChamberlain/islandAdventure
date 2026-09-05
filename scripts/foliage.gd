@@ -29,9 +29,22 @@ static func sway_material(source: Material, strength: float, height: float) -> S
 # Give every surface of `mesh` the wind shader. `height` is the local Y at which
 # the sway reaches full strength — roughly the plant's own height, so a grass
 # tuft and a 20 m tree both bend from the right place.
+#
+# MUST be idempotent. Meshes from load() are CACHED and SHARED, so this mutates a
+# resource that outlives the level: walk island -> city -> island and it runs
+# again on the same mesh. Without remembering the original material we'd wrap our
+# own ShaderMaterial, and since that isn't a BaseMaterial3D the albedo and
+# texture would be dropped — the model turns flat, then black. The original is
+# stashed in mesh metadata so every re-apply rebuilds from it.
 static func apply_sway(mesh: Mesh, strength: float, height: float) -> void:
 	if mesh == null or not (mesh is ArrayMesh):
 		return
 	var am := mesh as ArrayMesh
 	for i in am.get_surface_count():
-		am.surface_set_material(i, sway_material(am.surface_get_material(i), strength, height))
+		var key := "sway_source_%d" % i
+		var source: Material = am.surface_get_material(i)
+		if am.has_meta(key):
+			source = am.get_meta(key)          # re-apply: start from the original
+		else:
+			am.set_meta(key, source)           # first time: remember what was there
+		am.surface_set_material(i, sway_material(source, strength, height))

@@ -28,6 +28,14 @@ var max_lives: int = 3
 var lives: int = 3
 var is_night: bool = false      # set by main.gd's day/night cycle; enemies read it
 var quest_active: bool = false  # artifacts stay hidden until the Elder starts the hunt
+var quest_done: bool = false    # THIS world's hunt is finished (its portal stays open)
+# What survives a trip through a portal, and what doesn't:
+#   GLOBAL  — coins, Exotic Matter, the shop unlocks. They're yours, everywhere.
+#   PER-MAP — artifacts, quest progress, whether the portal has been opened.
+# world_state keeps a record per scene path so the island remembers its own hunt
+# while you're off in the city, and vice versa.
+var world_state: Dictionary = {}
+var current_world: String = ""
 var cinematic: bool = false     # true during a scripted moment (dialogue/finale): freeze the player
 var driving: bool = false        # true while the player is driving the vehicle
 var has_grapple: bool = false    # bought from the shop; persistent unlock (survives new_run)
@@ -50,12 +58,51 @@ func spend_coins(amount: int) -> bool:
 	return true
 
 # Called by main.gd when a level loads: sets a fresh run with `total` artifacts.
+# Arriving in a world: restore ITS progress, keep your wallet. Called on every
+# level load, including coming back through a portal.
+func enter_world(path: String, total: int) -> void:
+	current_world = path
+	total_artifacts = total
+	var st: Dictionary = world_state.get(path, {})
+	score = int(st.get("score", 0))
+	collected_artifacts = (st.get("collected", []) as Array).duplicate()
+	quest_active = bool(st.get("quest_active", false))
+	quest_done = bool(st.get("quest_done", false))
+	save_world()
+	driving = false
+	health = max_health
+	lives = max_lives
+	ammo = starting_ammo if has_gun else 0
+	weapon_mode = "pellet"
+	ammo_changed.emit(ammo, max_ammo)
+	weapon_mode_changed.emit(weapon_mode)
+	score_changed.emit(score, total_artifacts)
+	exotic_changed.emit(exotic_matter)
+	coins_changed.emit(coins)
+	health_changed.emit(health, max_health)
+	lives_changed.emit(lives, max_lives)
+
+# Write this world's progress back into the record. Called whenever any of it
+# changes, so a portal can be taken at any moment without losing anything.
+func save_world() -> void:
+	if current_world == "":
+		return
+	world_state[current_world] = {
+		"score": score,
+		"collected": collected_artifacts.duplicate(),
+		"quest_active": quest_active,
+		"quest_done": quest_done,
+	}
+
+# A genuinely fresh start: wipes every world AND the wallet (debug "Reset run").
 func new_run(total: int) -> void:
+	world_state = {}
+	exotic_matter = 0
+	coins = 0
+	quest_done = false
 	total_artifacts = total
 	score = 0
 	collected_artifacts = []
-	exotic_matter = 0
-	coins = 0
 	quest_active = false
 	driving = false
 	health = max_health
@@ -88,6 +135,7 @@ func collect(artifact_name: String) -> void:
 	score += 1
 	if not collected_artifacts.has(artifact_name):
 		collected_artifacts.append(artifact_name)
+	save_world()
 	score_changed.emit(score, total_artifacts)
 	artifact_collected.emit(score, total_artifacts)
 	# NOTE: winning no longer fires here — you must return to the Elder to finish
@@ -95,6 +143,8 @@ func collect(artifact_name: String) -> void:
 
 # Called by the Elder once you turn in a full set of artifacts (after his backflip).
 func complete_quest() -> void:
+	quest_done = true          # this world's portal stays open from now on
+	save_world()
 	all_artifacts_collected.emit()
 
 func artifacts_all_found() -> bool:
@@ -126,6 +176,7 @@ func begin_quest() -> void:
 	if quest_active:
 		return
 	quest_active = true
+	save_world()
 	quest_started.emit()
 
 # --- Blaster ------------------------------------------------------------------
