@@ -28,6 +28,10 @@ var _cine_blend: float = 0.0 # 0..1 toward the zoomed-in conversation framing
 @export var bounce_velocity: float = 14.0    # upward pop after stomping an enemy
 @export var knockback_strength: float = 10.0 # how hard a hit shoves you away
 @export var invuln_time: float = 1.0         # seconds of "can't be hit" after a hit
+# Safety net: trimesh collision (the city buildings, Reno's, Charlie's) can wedge
+# a CharacterBody3D in a crevice it can neither walk nor jump out of. If you're
+# pushing against nothing and still not moving, we put you back.
+@export var unstick_time: float = 1.5
 
 # --- Melee attacks (punch / kick) ---
 @export var attack_damage: int = 1
@@ -136,6 +140,9 @@ var _attacking: bool = false
 var _dancing: bool = false
 var _crouching: bool = false
 var _shooting: bool = false   # set by weapon.gd while you hold fire
+var _stuck_t: float = 0.0         # how long we've been going nowhere
+var _last_pos: Vector3 = Vector3.ZERO
+var _safe_pos: Vector3 = Vector3.ZERO   # last spot we were provably standing free
 var _stepping_back: bool = false  # reversing: drives the clip choice
 var _strafe_dir: int = 0          # -1 left, +1 right, 0 not sidestepping
 var _paced_speed: float = 1.0     # playback rate of whichever paced clip is up
@@ -1031,6 +1038,7 @@ func _physics_process(delta: float) -> void:
 		velocity.z = move_toward(velocity.z, target_z, rate * delta)
 
 	move_and_slide()
+	_check_stuck(delta, has_input, direction)
 	_update_animation()
 
 	# Footsteps while actually moving on the ground.
@@ -1051,6 +1059,47 @@ func _physics_process(delta: float) -> void:
 		_handle_death()
 
 	_update_camera(delta)
+
+# Remember where we were last standing free, and rescue us if we end up wedged.
+func _check_stuck(delta: float, has_input: bool, direction: Vector3) -> void:
+	var embedded := _inside_geometry()
+	if is_on_floor() and not embedded:
+		_safe_pos = global_position
+	var moved := global_position.distance_to(_last_pos)
+	_last_pos = global_position
+	if embedded:
+		_stuck_t += delta                      # inside a wall: always a problem
+	elif has_input and moved < 0.02 and not _grappling and not _wall_ahead(direction):
+		# Pressing into a wall is legitimate and must NOT count — only trigger
+		# when there's nothing in front of us and we still can't move.
+		_stuck_t += delta
+	else:
+		_stuck_t = 0.0
+	if _stuck_t > unstick_time:
+		_stuck_t = 0.0
+		if _safe_pos != Vector3.ZERO:
+			global_position = _safe_pos + Vector3.UP * 0.6
+		else:
+			global_position.y += 1.0
+		velocity = Vector3.ZERO
+		jumps_left = max_jumps                 # so you can always jump clear
+
+func _inside_geometry() -> bool:
+	var q := PhysicsPointQueryParameters3D.new()
+	q.position = global_position
+	q.collision_mask = 1
+	q.collide_with_areas = false
+	q.exclude = [get_rid()]
+	return get_world_3d().direct_space_state.intersect_point(q, 1).size() > 0
+
+func _wall_ahead(direction: Vector3) -> bool:
+	if direction.length() < 0.01:
+		return false
+	var from := global_position + Vector3.UP * 0.2
+	var q := PhysicsRayQueryParameters3D.create(from, from + direction.normalized() * 1.2)
+	q.collision_mask = 1
+	q.exclude = [get_rid()]
+	return not get_world_3d().direct_space_state.intersect_ray(q).is_empty()
 
 func _update_camera(delta: float) -> void:
 	if camera == null:

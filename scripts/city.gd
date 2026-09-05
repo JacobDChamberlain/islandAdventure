@@ -8,6 +8,23 @@ extends Node3D
 # artifact/exotic/coin placement, launch pads, platforms, the portal) queries
 # that, so they all work here with zero changes.
 
+@export var model_building_share: float = 0.45   # fraction of blocks using a Meshy building
+# One-off landmark buildings (a bar, a shop) dropped onto SHORT blocks near the
+# city's edge. Unlike the repeated buildings these keep their proportions —
+# scaled uniformly to the block's footprint rather than stretched to its height —
+# so a low-slung bar doesn't get pulled into a tower.
+@export var landmark_models: Array[String] = [
+	"res://assets/models/renos.glb",       # the island's bar, now downtown too
+	"res://assets/models/charlies.glb",
+]
+# Longest horizontal axis in metres, PER landmark (parallel to landmark_models).
+# Meshy models come out at wildly different internal scales — Charlie's people
+# were twice the hero's height — so one shared size doesn't work.
+@export var landmark_footprints: Array[float] = [22.7, 12.0]
+@export var landmark_footprint: float = 22.7   # fallback for any extra entries
+@export var landmark_lift: float = 0.08        # sit just proud of the road, never flush
+@export var landmark_max_floors: int = 3        # only replace genuinely short blocks
+@export var landmark_edge_margin: float = 2.5   # how close to the rim (in blocks)
 @export var extent: float = 260.0        # half-width of the ground (spans -extent..extent) — ~10x island area
 @export var cells: int = 160             # ground grid resolution (collision trimesh)
 @export var block_size: float = 44.0     # walkable block width between roads
@@ -174,6 +191,27 @@ func _build_city() -> void:
 		{"max": 10,  "color": Color(0.43, 0.49, 0.57), "xf": ([] as Array[Transform3D])},  # blue-grey
 		{"max": 999, "color": Color(0.24, 0.28, 0.34), "xf": ([] as Array[Transform3D])},  # dark glass towers
 	]
+	# Meshy building models stand in for a share of the greybox boxes. The
+	# collider stays a BoxShape3D either way — a 28K-triangle trimesh collider per
+	# building would cost far more than drawing them, and a platformer wants clean
+	# box rooftops for the grapple anyway.
+	var models: Array = []
+	var model_xf: Array = []
+	var model_aabb: Array = []
+	var model_shape: Array = []
+	for i in range(1, 6):
+		var m := _plant_mesh("res://assets/models/city_building_%d.glb" % i)
+		if m != null:
+			models.append(m)
+			model_xf.append([] as Array[Transform3D])
+			model_aabb.append(m.get_aabb())
+			# ONE trimesh shape per model, shared by every instance of it. A box
+			# collider is the building's bounding box, not the building — you end
+			# up standing on thin air above ledges and spires. Building a fresh
+			# shape per instance would mean 100+ copies of the same 28K triangles;
+			# sharing the resource costs one.
+			model_shape.append(m.create_trimesh_shape())
+
 	var tree_xf: Array[Transform3D] = []
 	var tree := _make_tree()
 	# Meshy plants (static via MultiMesh) replace most park trees.
@@ -189,6 +227,7 @@ func _build_city() -> void:
 
 	var n := int(extent / _pitch())
 	var rim := extent - block_size   # leave the outermost ring clear of buildings
+	var landmark_at := _choose_landmark_blocks(n, rim)
 	for ix in range(-n, n + 1):
 		for iz in range(-n, n + 1):
 			var cx := _block_center(ix)
@@ -211,6 +250,37 @@ func _build_city() -> void:
 			var basis := Basis().scaled(Vector3(fw, h, fd))
 			var xf := Transform3D(basis, center)
 
+			# A landmark claims this block outright.
+			var key := "%d,%d" % [ix, iz]
+			if landmark_at.has(key):
+				_place_landmark(landmark_at[key], cx, cz, gy, fw, fd)
+				continue
+
+			# Deterministic per block, so the skyline is stable between runs.
+			var pick := -1
+			if not models.is_empty() and _hash01(ix, iz, 29) < model_building_share:
+				pick = int(_hash01(ix, iz, 31) * float(models.size())) % models.size()
+			if pick >= 0:
+				# Scale the model onto this block's footprint and stand it on the
+				# ground: its own origin may sit anywhere inside its bounds.
+				var box: AABB = model_aabb[pick]
+				var sx: float = fw / maxf(box.size.x, 0.001)
+				var sy: float = h / maxf(box.size.y, 0.001)
+				var sz: float = fd / maxf(box.size.z, 0.001)
+				var mb := Basis().scaled(Vector3(sx, sy, sz))
+				var foot := Vector3(cx - (box.position.x + box.size.x * 0.5) * sx,
+					gy - box.position.y * sy,
+					cz - (box.position.z + box.size.z * 0.5) * sz)
+				var m_xf := Transform3D(mb, foot)
+				model_xf[pick].append(m_xf)
+				# Collide with the actual geometry, so you walk on the real roof.
+				var mbody := StaticBody3D.new()
+				mbody.transform = m_xf
+				var mcs := CollisionShape3D.new()
+				mcs.shape = model_shape[pick]
+				mbody.add_child(mcs)
+				add_child(mbody)
+				continue
 			for band in bands:
 				if floors <= band["max"]:
 					band["xf"].append(xf)
@@ -228,6 +298,8 @@ func _build_city() -> void:
 
 	for band in bands:
 		_commit_multimesh(unit_box, band["xf"], band["color"])
+	for i in models.size():
+		_commit_multimesh(models[i], model_xf[i], Color.WHITE, false)   # keep their textures
 	_commit_multimesh(tree, tree_xf, Color.WHITE, false)  # trees carry their own vertex colors
 	if plant1:
 		_commit_multimesh(plant1, plant1_xf, Color.WHITE, false)
@@ -359,6 +431,66 @@ func _add_plant_collision(px: float, pz: float, s: float) -> void:
 	cs.shape = shape
 	body.add_child(cs)
 	body.position = Vector3(px, height_at(px, pz) + 0.85 * s, pz)
+	add_child(body)
+
+# Pick one short, near-the-edge block per landmark. Deterministic: scanning in a
+# fixed order means the same building lands in the same place every run.
+func _choose_landmark_blocks(n: int, rim: float) -> Dictionary:
+	var out := {}
+	if landmark_models.is_empty():
+		return out
+	var want := landmark_models.size()
+	var edge := rim - landmark_edge_margin * _pitch()
+	for ix in range(-n, n + 1):
+		for iz in range(-n, n + 1):
+			if out.size() >= want:
+				return out
+			var cx := _block_center(ix)
+			var cz := _block_center(iz)
+			if absf(cx) > rim or absf(cz) > rim:
+				continue
+			if maxf(absf(cx), absf(cz)) < edge:
+				continue                       # not near enough to the edge
+			if _block_is_park(ix, iz) or not _block_has_building(ix, iz):
+				continue
+			if _building_floors(ix, iz) > landmark_max_floors:
+				continue                       # we asked for a SHORT building
+			out["%d,%d" % [ix, iz]] = landmark_models[out.size()]
+	return out
+
+# Stand a landmark on its block at its own proportions, with a collider matching
+# what's actually drawn rather than the block it replaced.
+func _place_landmark(path: String, cx: float, cz: float, gy: float, fw: float, fd: float) -> void:
+	var want := landmark_footprint
+	var idx := landmark_models.find(path)
+	if idx >= 0 and idx < landmark_footprints.size():
+		want = landmark_footprints[idx]
+	var mesh := _plant_mesh(path)
+	if mesh == null:
+		return
+	var box := mesh.get_aabb()
+	if box.size.x <= 0.0 or box.size.z <= 0.0:
+		return
+	# Size every landmark to the SAME real-world footprint rather than to whatever
+	# block it landed on. Meshy models come out at wildly different internal
+	# scales — Charlie's had people twice the hero's height — and fitting them to
+	# a block just inherits that error.
+	var s: float = want / maxf(box.size.x, box.size.z)
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.transform = Transform3D(Basis().scaled(Vector3.ONE * s),
+		Vector3(cx - (box.position.x + box.size.x * 0.5) * s,
+			gy - box.position.y * s + landmark_lift,
+			cz - (box.position.z + box.size.z * 0.5) * s))
+	add_child(mi)
+
+	# Trimesh, like the island's street model: you can walk onto the roof and in
+	# through the doorway instead of bumping into an invisible crate.
+	var body := StaticBody3D.new()
+	body.transform = mi.transform
+	var cs := CollisionShape3D.new()
+	cs.shape = mesh.create_trimesh_shape()
+	body.add_child(cs)
 	add_child(body)
 
 func _commit_multimesh(mesh: Mesh, xforms: Array[Transform3D], color: Color, colorize: bool = true) -> void:

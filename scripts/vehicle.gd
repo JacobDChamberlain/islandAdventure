@@ -350,9 +350,33 @@ func _recover() -> void:
 	var gy := global_position.y
 	if g and g.has_method("height_at"):
 		gy = g.height_at(x, z)
-	global_transform = Transform3D(Basis(Vector3.UP, global_rotation.y), Vector3(x, gy + 2.0, z))
+	# Uprighting in place is no help when you're wedged against a building — R
+	# just dropped you back into the same gap. Find clear road first.
+	var spot := _clear_spot(Vector3(x, gy, z), g)
+	global_transform = Transform3D(Basis(Vector3.UP, global_rotation.y), spot + Vector3.UP * 2.0)
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
+
+# Nearest position with nothing solid in it, searching outward from `base`.
+func _clear_spot(base: Vector3, g: Node) -> Vector3:
+	if _is_clear(base):
+		return base
+	for ring in range(1, 9):
+		var r: float = ring * 4.0
+		for i in 8:
+			var a: float = (TAU / 8.0) * i
+			var p := Vector3(base.x + cos(a) * r, base.y, base.z + sin(a) * r)
+			if g != null and g.has_method("height_at"):
+				p.y = g.height_at(p.x, p.z)
+			if _is_clear(p):
+				return p
+	return base
+
+# Clear means: nothing solid at wheel height, and nothing solid at roof height.
+func _is_clear(p: Vector3) -> bool:
+	var world := get_world_3d()
+	return not PickupUtil.inside_solid(world, p + Vector3.UP * 0.6) \
+		and not PickupUtil.inside_solid(world, p + Vector3.UP * 2.2)
 
 # The car's visual forward (the way it drives on W). The chase cam sits opposite
 # this. It's +Z here (not the usual -Z) — that's the side the box body drives.
