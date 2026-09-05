@@ -235,6 +235,30 @@ scale into that rig, so `_fit_gun()` divides the bone's world scale back out —
 which is why `gun_length` is a true measurement in metres. `gun_offset` /
 `gun_rotation_deg` are for nudging it into the grip by eye.
 
+**Outside animations (Mixamo, mocap) — `tools/retarget_mixamo.gd`.** His 24 bones
+use standard humanoid names, so Mixamo clips retarget onto him with no Blender:
+
+```bash
+Godot --headless --path . --script tools/retarget_mixamo.gd ++ \
+    "res://assets/models/Sneak Walk.fbx" mixamo_com res://assets/animations/sneak_walk.res
+```
+
+Three things that are easy to get wrong, and were:
+- Bone tracks must address the skeleton NODE (`Armature/Skeleton3D:Hips`).
+  `.:Hips` binds to nothing — the clip plays and the rig only wobbles.
+- The rotation delta must be converted BETWEEN the two rigs' bone frames or he
+  turns inside out: `C = Hg⁻¹·Sg`, `hero_local = hero_rest·(C·delta·C⁻¹)`.
+- Hips POSITION has to come across too (scaled, X/Z pinned) or the pelvis stays
+  frozen while the legs flail. Retargeted clips therefore load **after**
+  `_strip_root_motion()`, which would otherwise freeze exactly that.
+
+Do NOT "fix" this via `hero_anim_merged.glb.import` — a BoneMap/Rest Fixer
+mistake there breaks all 15 working clips. And note **Fix Silhouette cannot lower
+his raised arms**: with a BoneMap it retargets tracks to PRESERVE the look, which
+is the opposite of what's wanted. `scripts/arm_droop.gd` does that instead —
+a plain node at `process_priority` 500, *not* a `SkeletonModifier3D`, whose
+writes the AnimationPlayer overwrites because it poses the skeleton afterwards.
+
 ## Gotchas
 
 - `.ogg`/`.wav` default to looping on import — SFX force loop off in `sfx.gd`.
