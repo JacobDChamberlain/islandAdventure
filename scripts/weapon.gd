@@ -68,6 +68,7 @@ const MODES := {
 # the barrel and which is "up", and the fit rotates that onto the hero's aim.
 @export var gun_barrel_axis: Vector3 = Vector3(-1, 0, 0)
 @export var gun_up_axis: Vector3 = Vector3(0, 1, 0)
+@export var scope_snap_time: float = 0.12   # seconds to swing onto/off the aim line
 
 var drawn: bool = false
 var scoped: bool = false
@@ -79,6 +80,8 @@ var _beam: MeshInstance3D          # the laser's visible tube (built like the gr
 var _beam_sound: float = 0.0       # throttles the sizzle so it isn't machine-gunned
 var _hand: BoneAttachment3D        # follows the hero's hand bone
 var _gun: Node3D                   # the visible weapon model
+var _gun_mount: Transform3D        # its resting transform on the hand bone
+var _aim_blend: float = 0.0        # 0 = riding the hand, 1 = locked on the reticle
 var _rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
@@ -167,6 +170,7 @@ func _fit_gun() -> void:
 	var local := bone_in_player.inverse() * align
 	local = local * Basis.from_euler(gun_rotation_deg * (PI / 180.0))
 	_gun.transform = Transform3D(local.scaled(Vector3.ONE * s), gun_offset / bone_scale)
+	_gun_mount = _gun.transform
 
 # While driving, the car is the gun platform: its chase camera aims and the
 # muzzle rides on the car, since the hero himself is hidden inside it.
@@ -218,6 +222,12 @@ func _process(delta: float) -> void:
 	if _gun != null and is_instance_valid(_gun):
 		_gun.visible = Game.has_gun and drawn and _player.visible \
 			and not (_player.has_method("is_busy_melee") and _player.is_busy_melee())
+		# Hip fire leaves the gun riding the hand animation, which wobbles because
+		# he has no aim pose. Scoping locks the barrel onto the reticle instead.
+		if scoped:
+			_aim_gun_at_reticle(delta)
+		else:
+			_relax_gun_to_hand(delta)
 
 	# Scope: pull the FOV in while Shift is held with the gun out.
 	scoped = is_active() and Input.is_physical_key_pressed(KEY_SHIFT)
@@ -330,6 +340,42 @@ func _fire() -> void:
 		Sfx.shoot_heavy()
 	else:
 		Sfx.shoot()
+
+# Point the model's barrel straight down the aim ray, easing in so it doesn't
+# snap. Only the ROTATION is overridden — the position still rides the hand.
+func _aim_gun_at_reticle(delta: float) -> void:
+	var dir := _aim_point() - _muzzle()
+	if dir.length() < 0.01:
+		return
+	dir = dir.normalized()
+	var up := Vector3.UP
+	if absf(dir.dot(up)) > 0.99:
+		up = _player.global_transform.basis.y     # looking straight up/down
+	var side := dir.cross(up)
+	if side.length() < 0.001:
+		return
+	side = side.normalized()
+	var true_up := side.cross(dir).normalized()
+	var b := gun_barrel_axis.normalized()
+	var m := gun_up_axis.normalized()
+	var model_frame := Basis(b, m, b.cross(m))
+	var target := (Basis(dir, true_up, dir.cross(true_up)) * model_frame.inverse()).orthonormalized()
+	# Blend from wherever the HAND currently holds it to the aim line. The hand
+	# moves every frame, so an exponential ease would chase a moving target and
+	# never actually arrive — this ramps a 0..1 factor instead, and at 1 the
+	# result is exactly the aim direction no matter what the arm is doing.
+	_aim_blend = minf(1.0, _aim_blend + delta / maxf(scope_snap_time, 0.001))
+	var scale := _gun.global_transform.basis.get_scale()
+	var now := _gun.global_transform.basis.orthonormalized()
+	_gun.global_transform = Transform3D(now.slerp(target, _aim_blend).scaled(scale), _gun.global_position)
+
+func _relax_gun_to_hand(delta: float) -> void:
+	_aim_blend = maxf(0.0, _aim_blend - delta / maxf(scope_snap_time, 0.001))
+	if _gun_mount == Transform3D():
+		return
+	# The mount is fixed in the hand's local space, so this one does converge.
+	_gun.transform = _gun.transform.interpolate_with(
+		_gun_mount, minf(1.0, delta / maxf(scope_snap_time, 0.001)))
 
 func _muzzle() -> Vector3:
 	var rig := _rig()

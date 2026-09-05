@@ -145,7 +145,11 @@ and exposes **`height_at(x, z)`** — the source of truth for ground height.
   ground everywhere — but falling off the world works in both.
 - **The blaster** (`weapon.gd`, a Node3D player.gd builds in code): bought from the
   cat (`gun_price`), **1** draws/holsters, **hold LMB** streams visible pellets
-  (`bullet.gd`, also code-built — no .tscn), **Shift** scopes (FOV + look speed).
+  (`bullet.gd`, also code-built — no .tscn), **Shift** scopes (FOV + look speed + the barrel locks onto the reticle — hip
+  fire leaves the gun riding the hand animation, which wobbles up to ~36 deg
+  because there is no aim pose; `_aim_gun_at_reticle` ramps a 0..1 blend rather
+  than easing exponentially, since the hand moves every frame and an ease would
+  chase a target that never stops moving).
   Pellets move by SWEPT RAYCAST, not Area3D overlap — at 44 m/s a pellet covers
   more ground per frame than its own diameter (it would tunnel through thin
   walls), and a ray reports the surface normal the `bouncy` upgrade bounces
