@@ -162,6 +162,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48, 30, 48)
 
 [node name="Elder" parent="." instance=ExtResource("20_npc")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 30, 4)
+intro_lines = PackedStringArray("Alright bucko listen up. There's these Artifacts from a bygone civilization, ya see? The Artifacts look like glowing orbs, like a ball of stone with technology growing inside it.", "We don't know who put them here, or why, but they're freakin me out man. I don't like the way they float like that.", "Grab all {total} of em for me, and I'll let you into the City or somethin'. I dont know. Who cares.")
 
 [node name="Enemy1" parent="." instance=ExtResource("4_enemy")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26, 30, 12)

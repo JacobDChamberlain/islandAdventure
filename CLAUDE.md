@@ -269,6 +269,15 @@ WRAPS each existing surface material rather than setting a `material_override`,
 which would flatten a tree's trunk and canopy to one colour. Rocks are excluded
 on purpose.
 
+**Never edit a `.tscn`/`.tres` from the shell while the editor is OPEN.** Godot
+holds its own in-memory copy and rewrites the file when it saves, silently
+dropping external edits (this ate Spencer's island `intro_lines` once). Kill
+Godot, edit, then relaunch — and grep the property back out to confirm. A
+wholesale re-save is recognisable in a diff: `load_steps` changes, `uid=` appears
+on every ext_resource, `anchors_preset` becomes `layout_mode`. Separately, Godot
+omits properties that equal their script default, so a value vanishing from a
+`.tscn` isn't always a loss — check the script's default first.
+
 ## Gotchas
 
 - `.ogg`/`.wav` default to looping on import — SFX force loop off in `sfx.gd`.
