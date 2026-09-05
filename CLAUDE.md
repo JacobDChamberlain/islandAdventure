@@ -95,6 +95,16 @@ and exposes **`height_at(x, z)`** — the source of truth for ground height.
 - **Terrain triangle winding must face up** (`island._tri` winds `a,c,b`/`a,d,c`)
   or `is_on_floor` fails and rays pass through.
 - Groups used: `player`, `artifact`, `exotic`, `coin`, `enemy`, `npc`, `island`.
+- **Spencer's script** (`npc.gd`): idle chatter floats over his head in a Label3D
+  bubble whenever you're near (the E prompt sits at waist height below it); the
+  quest intro is per-level `intro_lines`; pestering him mid-hunt picks a random
+  `mid_quest_lines` entry with `{left}`/`{have}`/`{total}` filled in, and
+  `{grapple}` resolves from the cat's actual `grapple_price` so the quoted price
+  can't drift from the shop's. **Artifact cutaways** are live in-engine, not
+  video: on `Dialogue.line_shown(cutaway_line)` a temporary Camera3D orbits real
+  Artifacts for `cutaway_hold` each (`cutaway_high_first` picks the rooftop ones
+  in the city), then hands the view back. Artifacts are hidden before the quest
+  starts, so the filmed ones are revealed for the shot and re-hidden after.
 - **Quest gating**: artifacts hide + disable pickup until `Game.quest_active` (set by
   the Elder's first conversation, which emits `quest_started`). The win no longer
   fires on collecting the last artifact — the NPC calls `Game.complete_quest()` after

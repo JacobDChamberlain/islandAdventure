@@ -9,6 +9,11 @@ const SIT_CLIP := "Armature|clip0|baselayer"
 const WALK_SRC := "Armature|Unreal Take|baselayer"
 
 @export var shop_name: String = "Biscuit"       # the cat shopkeeper's name
+@export_multiline var greetings: PackedStringArray = ["Mow.", "Mow?"]
+# Rare comeback. Gated on the quest being underway, since it answers something
+# Spencer said — before that, you haven't met him and the line makes no sense.
+@export_multiline var rare_greeting: String = "Mrow.\nYou spoke with Spencer? That dirty human lies. I owe him nothing."
+@export var rare_greeting_chance: float = 0.08
 @export var grapple_price: int = 25
 @export var gun_price: int = 40
 @export var ammo_price: int = 10
@@ -536,14 +541,11 @@ func _talk() -> void:
 	Dialogue.start(shop_name, [_greeting()])
 
 func _greeting() -> String:
-	if _following:
-		return "Mrrp! *trots up to you, tail high*"
-	var lines := [
-		"Mrrow? *blinks slowly at you*",
-		"Mrrp. *stretches, then looks up expectantly*",
-		"Meow. *sits neatly and waits*",
-	]
-	return lines[_rng.randi() % lines.size()]
+	if rare_greeting != "" and Game.quest_active and _rng.randf() < rare_greeting_chance:
+		return rare_greeting
+	if greetings.is_empty():
+		return "Mow."
+	return greetings[_rng.randi() % greetings.size()]
 
 # --- Main menu ----------------------------------------------------------------
 

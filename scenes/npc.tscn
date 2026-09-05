@@ -19,7 +19,7 @@ collision_mask = 1
 shape = SubResource("TalkShape")
 
 [node name="Prompt" type="Label3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 pixel_size = 0.005
 billboard = 1
 no_depth_test = true

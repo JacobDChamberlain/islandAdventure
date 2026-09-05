@@ -6,6 +6,7 @@ extends CanvasLayer
 
 signal finished
 signal confirmed(accepted: bool)   # emitted by ask() when the player picks Yes/No
+signal line_shown(index: int)      # each time a new line appears (drives NPC cutaways)
 
 @onready var panel: Control = $Panel
 @onready var speaker_label: Label = $Panel/Margin/VBox/Speaker
@@ -55,6 +56,7 @@ func _show_current() -> void:
 	_since_blip = 0
 	_revealing = line.length() > 0
 	_update_hint()
+	line_shown.emit(_idx)
 
 func _update_hint() -> void:
 	if hint_label == null:

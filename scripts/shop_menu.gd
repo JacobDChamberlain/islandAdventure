@@ -103,7 +103,7 @@ func show_items(items: Array, blurb: String = "", title: String = "") -> void:
 		if price > 0:
 			label += "        %d coins" % price
 		b.text = label
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		b.custom_minimum_size = Vector2(0, ROW_HEIGHT)
 		b.add_theme_font_size_override("font_size", 21)
 		b.disabled = not bool(item.get("enabled", true))
@@ -117,9 +117,10 @@ func show_items(items: Array, blurb: String = "", title: String = "") -> void:
 		# The note sits under its row so it reads without hovering.
 		if str(item.get("note", "")) != "":
 			var note := Label.new()
-			note.text = "    " + str(item["note"])
+			note.text = str(item["note"])
 			note.add_theme_font_size_override("font_size", 15)
 			note.add_theme_color_override("font_color", Color(0.6, 0.7, 0.75))
+			note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			_list.add_child(note)
 			_spawned.append(note)
 

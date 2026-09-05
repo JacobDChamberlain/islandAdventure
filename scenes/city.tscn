@@ -161,7 +161,8 @@ snap_to_roof = true
 
 [node name="Elder" parent="." instance=ExtResource("20_npc")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 20, -8)
-intro_lines = PackedStringArray("Whoa— you made it through the portal! Welcome to the City, kid. Bigger, meaner, way more concrete.", "Same deal as the island, but these heads got smart — they stashed the Artifacts up on the rooftops and down the alleys.", "Round up the whole set and turn 'em in. Show this town what an islander can do!")
+intro_lines = PackedStringArray("Ayyyy you made it! Hope ya didn't lose any limbs comin' through the portal. Welcome to the city! Time to collect more Artifacts!", "I should tell you, some of 'em materialized on the dang ol' rooftops, and you'll need a Grappling Hook to getchaself up there. You can buy it for {grapple} coins at the Shop.", "Whip's parked out front, Shop's 'round the corner. Say hi to Biscuit for me! She owes me money.")
+cutaway_high_first = true
 progress_hint = "Work the rooftops and the back alleys — check the plaza and the tall blocks downtown."
 complete_lines = PackedStringArray("Get OUTTA here — every last Artifact, in the big city?!", "You're the real deal, kid. Watch me lose my mind — THIS is for you!")
 

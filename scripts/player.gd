@@ -661,6 +661,8 @@ func _cancel_dance() -> void:
 func take_hit(source_pos: Vector3) -> void:
 	if _invuln > 0.0 or _driving:
 		return   # invincible right after a hit, or safe inside the car
+	if Game.cinematic or Game.shop_open or Dialogue.active:
+		return   # nothing lands while you're mid-conversation or in the shop
 	_invuln = invuln_time
 	Sfx.hurt()
 	_cancel_dance()
