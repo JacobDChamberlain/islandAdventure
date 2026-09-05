@@ -298,6 +298,22 @@ grep -l "detect_3d/compress_to=1" $(find . -name '*.import' ! -path './.godot/*'
 - Scaling a CharacterBody3D node (the giant enemy) is fine, but ground-snap must use
   the world-space half-height (`model_height*0.5*scale.y`).
 - Save/load resets enemies to spawn (live enemy state isn't saved yet).
+- **A `.glb` handles its textures one of two ways, and it decides what can reach
+  them.** `gltf/embedded_image_handling` in the `.glb.import`: **Extract** (1)
+  writes the textures out as real files, each with its own `.import` — so any
+  texture-wide fix applies to them. **Embed as Uncompressed** (3) keeps them
+  inside the `.glb` as raw RGBA8, with no `.import` file to configure and no VRAM
+  compression. 12 models were on Extract and exactly three — `artifact`,
+  `exotic_matter`, `npc` — were on Embed as Uncompressed, which is why an earlier
+  fix that converted 74 extracted textures silently skipped them. They are now
+  **Basis Universal** (2), which is VRAM-compressed and also the right choice for
+  the eventual web export. Check this setting before assuming a texture fix was
+  project-wide:
+  `grep -h embedded_image_handling assets/models/*.glb.import | sort | uniq -c`
+- **`RENDERING_INFO_TEXTURE_MEM_USED` underflows to about -16 GB on every
+  `change_scene_*` and never recovers** — it does it with a completely empty
+  scene too, so it is an engine accounting quirk, not evidence of a double-free.
+  Don't chase it. Measure texture VRAM *within* a single scene only.
 - **Modal UI must respect two things**: `PauseLayer` is `layer = 10`, so a modal
   has to sit BELOW it (a full-screen dim above it swallows the pause menu's
   clicks — you can pause but not press anything), and `pause_menu.gd` grabs
