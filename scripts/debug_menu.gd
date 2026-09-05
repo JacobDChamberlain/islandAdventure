@@ -35,6 +35,15 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	# N (while this panel is open) flips between midnight and morning, so you can
 	# test night-time things without waiting out the day/night cycle.
+	# B (panel open) — snapshot every visible material to user://black_report.txt.
+	# For catching the intermittent "asset renders solid black" bug: press it WHILE
+	# something is black and the report says whether the texture is actually
+	# missing, the albedo is black, or the material looks fine (making it a
+	# GPU/upload problem rather than a data one).
+	elif _open and event is InputEventKey and event.pressed and not event.echo \
+			and event.physical_keycode == KEY_B:
+		_dump_materials()
+		get_viewport().set_input_as_handled()
 	elif _open and event is InputEventKey and event.pressed and not event.echo \
 			and event.physical_keycode == KEY_N:
 		var level := get_tree().current_scene
@@ -94,6 +103,44 @@ func _give_gun() -> void:
 	Game.grant_gun()
 	Game.collect_ammo(Game.max_ammo)
 	_refresh()
+
+func _dump_materials() -> void:
+	var lines: Array[String] = []
+	var suspect := 0
+	var total := 0
+	for mi in get_tree().root.find_children("*", "MeshInstance3D", true, false):
+		if mi.mesh == null or not mi.is_visible_in_tree():
+			continue
+		for i in mi.mesh.get_surface_count():
+			var m = mi.get_active_material(i)
+			total += 1
+			if m == null:
+				lines.append("%s surface %d: NO MATERIAL" % [mi.name, i])
+				suspect += 1
+				continue
+			var desc := "%s surface %d: %s" % [mi.name, i, m.get_class()]
+			if m is BaseMaterial3D:
+				var bm := m as BaseMaterial3D
+				var dark: bool = bm.albedo_color.r + bm.albedo_color.g + bm.albedo_color.b < 0.05
+				var no_tex: bool = bm.albedo_texture == null
+				desc += "  albedo=%s tex=%s emission=%s" % [
+					str(bm.albedo_color), str(not no_tex), str(bm.emission_enabled)]
+				if dark:
+					desc += "   <-- ALBEDO IS BLACK"
+					suspect += 1
+			elif m is ShaderMaterial:
+				var sm := m as ShaderMaterial
+				desc += "  shader=%s albedo=%s tex=%s" % [
+					str(sm.shader.resource_path.get_file()) if sm.shader else "none",
+					str(sm.get_shader_parameter("albedo_color")),
+					str(sm.get_shader_parameter("albedo_tex") != null)]
+			lines.append(desc)
+	var f := FileAccess.open("user://black_report.txt", FileAccess.WRITE)
+	if f != null:
+		f.store_string("\n".join(lines))
+		f.close()
+	print("[debug] %d visible surfaces, %d suspicious -> user://black_report.txt" % [total, suspect])
+	_status.text += "\nMaterial report written (%d surfaces, %d suspicious)" % [total, suspect]
 
 func _add_life() -> void:
 	Game.lives = mini(Game.lives + 1, Game.max_lives)
