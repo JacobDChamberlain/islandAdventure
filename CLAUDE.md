@@ -269,7 +269,10 @@ WRAPS each existing surface material rather than setting a `material_override`,
 which would flatten a tree's trunk and canopy to one colour. Rocks are excluded
 on purpose.
 
-**Never edit a `.tscn`/`.tres` from the shell while the editor is OPEN.** Godot
+**Never edit a `.tscn`/`.tres` from the shell while the editor is OPEN — and
+never `git add` a `.tscn` you did not deliberately edit.** (Both halves have now
+bitten: once editing with the editor open, once by sweeping the editor's own
+re-save into an unrelated commit, which cost the whole Player node.) Godot
 holds its own in-memory copy and rewrites the file when it saves, silently
 dropping external edits (this ate Spencer's island `intro_lines` once). Kill
 Godot, edit, then relaunch — and grep the property back out to confirm. A
