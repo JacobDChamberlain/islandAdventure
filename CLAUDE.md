@@ -320,6 +320,17 @@ grep -l "detect_3d/compress_to=1" $(find . -name '*.import' ! -path './.godot/*'
   `ui_cancel` in `_input`, so a modal must consume Esc in `_input` too and set
   a flag (`Game.shop_open`) that pause_menu checks — otherwise Esc pauses the
   game *behind* the modal instead of closing it.
+- **Every Meshy material imports `metallic = 1.0`**, and a fully metallic surface
+  has NO diffuse response in PBR — it shows only reflection and ambient. What
+  makes these models visible is their **emission** texture (emission is enabled
+  with the base colour wired into it), not their albedo. Two consequences: the
+  ones with no emission (Reno's, Charlie's, the city buildings, the shop, the
+  car) hang entirely off ambient/reflection, and for the ones with emission
+  (hero, Spencer, enemies, Biscuit, artifact, exotic matter) a lost EMISSION
+  texture renders them solid black while `albedo_texture` still measures
+  perfectly healthy. The debug material dump (P then B) therefore samples all
+  four texture slots, not just albedo — the first capture of the black bug
+  checked only albedo and so proved nothing.
 - **Never mutate the hero's imported material in place.** It ships with
   `emission_enabled = true` (black emission ADDed over an emissive texture) and
   `metallic = 1.0`; turning that emission off unmasks his specular and he reads as

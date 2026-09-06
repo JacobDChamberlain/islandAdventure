@@ -104,43 +104,152 @@ func _give_gun() -> void:
 	Game.collect_ammo(Game.max_ammo)
 	_refresh()
 
+# Snapshot every visible surface while something is rendering black.
+#
+# The first version only reported whether albedo_texture was non-null, which
+# wasn't enough: Biscuit was captured mid-bug with a perfectly healthy material
+# (tex=true, albedo white). A bound Texture2D says nothing about whether the
+# RENDERING SERVER still holds its pixels — and a texture whose GPU-side RID has
+# gone renders black while its material still looks fine.
+#
+# So each unique texture is now read back with get_image(), which asks the
+# rendering server for the actual content. Three outcomes, three different bugs:
+#   RS-DATA GONE  -> get_image() returned nothing: the GPU-side texture is dead
+#   ALL BLACK     -> pixels came back black: the source data itself is black
+#   fine          -> the texture is intact and the fault is elsewhere (lighting,
+#                    shader, or the draw itself)
 func _dump_materials() -> void:
 	var lines: Array[String] = []
-	var suspect := 0
-	var total := 0
+	# Counted in a Dictionary, not plain ints: GDScript lambdas capture locals by
+	# VALUE, so increments inside `report` below would be thrown away.
+	var n_cnt: Dictionary = {"total": 0, "suspect": 0}
+	var seen: Dictionary = {}      # texture path -> verdict, so each is read once
+	var fragile: Array[String] = []   # metallic=1 + no emission: reflection-only
+
+	# Reading a texture back from the GPU is slow, hence the dedupe above.
+	var check_tex := func(t: Texture2D) -> String:
+		if t == null:
+			return "none"
+		var key: String = t.resource_path if t.resource_path != "" else str(t.get_instance_id())
+		if seen.has(key):
+			return seen[key]
+		var verdict := ""
+		var img: Image = null
+		# A freed RID typically makes this return null rather than erroring.
+		img = t.get_image()
+		if img == null or img.is_empty():
+			verdict = "RS-DATA GONE (%dx%d)" % [t.get_width(), t.get_height()]
+		else:
+			# These are VRAM-compressed, and get_pixel() can't read a compressed
+			# image — it has to be decompressed first or every sample errors.
+			if img.is_compressed():
+				if img.decompress() != OK:
+					seen[key] = "compressed, undecodable"
+					return seen[key]
+			# Sample a grid rather than every pixel; enough to tell black from art.
+			var w := img.get_width()
+			var h := img.get_height()
+			var sum := 0.0
+			var n := 0
+			for gx in 8:
+				for gy in 8:
+					var c := img.get_pixel(int(w * gx / 8.0), int(h * gy / 8.0))
+					sum += c.r + c.g + c.b
+					n += 1
+			var mean := sum / maxf(float(n) * 3.0, 1.0)
+			if mean < 0.02:
+				verdict = "ALL BLACK (%dx%d mean %.4f)" % [w, h, mean]
+			else:
+				verdict = "ok %dx%d mean %.3f fmt %d" % [w, h, mean, img.get_format()]
+		seen[key] = verdict
+		return verdict
+
+	var report := func(node_name: String, idx: int, m: Material) -> void:
+		n_cnt.total += 1
+		if m == null:
+			lines.append("%s surface %d: NO MATERIAL" % [node_name, idx])
+			n_cnt.suspect += 1
+			return
+		var desc := "%s surface %d: %s" % [node_name, idx, m.get_class()]
+		if m is BaseMaterial3D:
+			var bm := m as BaseMaterial3D
+			desc += "  albedo=%s metallic=%.2f rough=%.2f emission=%s" % [
+				str(bm.albedo_color), bm.metallic, bm.roughness, str(bm.emission_enabled)]
+			# Check EVERY texture slot, not just albedo. These Meshy materials are
+			# metallic=1.0, which contributes no diffuse at all — what actually
+			# makes them visible is the emission texture. So emission is the slot
+			# whose loss renders a model solid black while albedo still measures
+			# perfectly healthy, which is what the first capture showed.
+			var bad := false
+			for slot in [["albedo", bm.albedo_texture], ["emission", bm.emission_texture],
+					["normal", bm.normal_texture], ["orm", bm.orm_texture]]:
+				var t: Texture2D = slot[1]
+				if t == null:
+					continue
+				var st: String = check_tex.call(t)
+				desc += "\n        %-9s %s" % [slot[0] + ":", st]
+				if t.resource_path != "":
+					desc += "\n            %s" % t.resource_path
+				if st.begins_with("RS-DATA") or st.begins_with("ALL BLACK"):
+					bad = true
+			# Fully-metallic-with-no-emission is FRAGILE, not broken: it still
+			# shows albedo x ambient, so Reno's and the car look fine. It's
+			# listed separately at the end rather than counted as suspicious --
+			# 13 of these fire on a perfectly healthy scene and would bury a
+			# real hit.
+			if bm.metallic > 0.95 and not bm.emission_enabled:
+				fragile.append("%s (%s)" % [node_name,
+					bm.albedo_texture.resource_path.get_file() if bm.albedo_texture else "no tex"])
+			var dark: bool = bm.albedo_color.r + bm.albedo_color.g + bm.albedo_color.b < 0.05
+			if dark:
+				desc += "\n        <-- ALBEDO COLOUR IS BLACK"
+			if dark or bad:
+				n_cnt.suspect += 1
+		elif m is ShaderMaterial:
+			var sm := m as ShaderMaterial
+			var st: String = check_tex.call(sm.get_shader_parameter("albedo_tex") as Texture2D)
+			desc += "  shader=%s albedo=%s\n        albedo_tex: %s" % [
+				str(sm.shader.resource_path.get_file()) if sm.shader else "none",
+				str(sm.get_shader_parameter("albedo_color")), st]
+			if st.begins_with("RS-DATA") or st.begins_with("ALL BLACK"):
+				n_cnt.suspect += 1
+		lines.append(desc)
+
 	for mi in get_tree().root.find_children("*", "MeshInstance3D", true, false):
 		if mi.mesh == null or not mi.is_visible_in_tree():
 			continue
 		for i in mi.mesh.get_surface_count():
-			var m = mi.get_active_material(i)
-			total += 1
+			report.call(String(mi.name), i, mi.get_active_material(i))
+	# The buildings and foliage are MultiMesh, which the first version missed
+	# entirely — and the ground going black was one of the reported symptoms.
+	for mm in get_tree().root.find_children("*", "MultiMeshInstance3D", true, false):
+		if mm.multimesh == null or mm.multimesh.mesh == null or not mm.is_visible_in_tree():
+			continue
+		for i in mm.multimesh.mesh.get_surface_count():
+			var m: Material = mm.material_override
 			if m == null:
-				lines.append("%s surface %d: NO MATERIAL" % [mi.name, i])
-				suspect += 1
-				continue
-			var desc := "%s surface %d: %s" % [mi.name, i, m.get_class()]
-			if m is BaseMaterial3D:
-				var bm := m as BaseMaterial3D
-				var dark: bool = bm.albedo_color.r + bm.albedo_color.g + bm.albedo_color.b < 0.05
-				var no_tex: bool = bm.albedo_texture == null
-				desc += "  albedo=%s tex=%s emission=%s" % [
-					str(bm.albedo_color), str(not no_tex), str(bm.emission_enabled)]
-				if dark:
-					desc += "   <-- ALBEDO IS BLACK"
-					suspect += 1
-			elif m is ShaderMaterial:
-				var sm := m as ShaderMaterial
-				desc += "  shader=%s albedo=%s tex=%s" % [
-					str(sm.shader.resource_path.get_file()) if sm.shader else "none",
-					str(sm.get_shader_parameter("albedo_color")),
-					str(sm.get_shader_parameter("albedo_tex") != null)]
-			lines.append(desc)
-	var f := FileAccess.open("user://black_report.txt", FileAccess.WRITE)
+				m = mm.multimesh.mesh.surface_get_material(i)
+			report.call("[MM] " + String(mm.name), i, m)
+
+	# Never overwrite an earlier capture: the last report cost a press because
+	# the second dump replaced the first.
+	var n := 1
+	while FileAccess.file_exists("user://black_report_%d.txt" % n):
+		n += 1
+	var path := "user://black_report_%d.txt" % n
+	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f != null:
-		f.store_string("\n".join(lines))
+		var extra := ""
+		if not fragile.is_empty():
+			extra = "\n\n%s\nFULLY METALLIC, NO EMISSION (%d) -- these have no diffuse\nresponse, so they show only reflection/ambient. Not broken, but they\nare the first things that would go black if reflections fail:\n  %s" % [
+				"-".repeat(60), fragile.size(), "\n  ".join(fragile)]
+		f.store_string("scene: %s   night: %s\n%s\n\n%s%s" % [
+			get_tree().current_scene.scene_file_path if get_tree().current_scene else "?",
+			str(Game.is_night), "-".repeat(60), "\n".join(lines), extra])
 		f.close()
-	print("[debug] %d visible surfaces, %d suspicious -> user://black_report.txt" % [total, suspect])
-	_status.text += "\nMaterial report written (%d surfaces, %d suspicious)" % [total, suspect]
+	print("[debug] %d surfaces, %d suspicious -> %s" % [n_cnt.total, n_cnt.suspect, path])
+	_status.text += "\nReport %d written (%d surfaces, %d suspicious)" % [
+		n, n_cnt.total, n_cnt.suspect]
 
 func _add_life() -> void:
 	Game.lives = mini(Game.lives + 1, Game.max_lives)
