@@ -30,3 +30,16 @@ DebugMenu="*res://scenes/debug_menu.tscn"
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
+
+[rendering]
+
+; Godot 4.5 defaults to the Metal backend on Apple Silicon. It is the newer and
+; less proven of the two macOS paths (godotengine/godot#95919 tracks its known
+; rendering bugs), and it is the last remaining suspect for assets that render
+; solid black at random and stay black until the process is restarted: by then
+; every data-level check had passed -- albedo, emission, normal and ORM all read
+; back healthy from the rendering server for the very surfaces that were black,
+; on materials with nothing in common (the island's untextured vertex-coloured
+; terrain, and the city's emissive, fully textured artifacts).
+; Vulkan via MoltenVK is the mature path. Delete this section to go back.
+rendering_device/driver.macos="vulkan"
