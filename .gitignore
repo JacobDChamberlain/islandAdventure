@@ -23,3 +23,6 @@
 # and commit THAT, the way the guns and the ammo crate were done.
 /assets/models/city-building-*
 /assets/models/charlies-*
+
+# Exported builds
+/build/
