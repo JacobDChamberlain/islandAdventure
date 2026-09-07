@@ -295,6 +295,41 @@ auto-detect. Check new imports with:
 grep -l "detect_3d/compress_to=1" $(find . -name '*.import' ! -path './.godot/*')
 ```
 
+## Web build / itch.io
+
+`export_presets.cfg` holds a **Web** preset; `.github/workflows/deploy-itch.yml`
+builds it on every push to `main` and uploads with butler (needs repo secret
+`BUTLER_API_KEY` and repo variables `ITCH_USER`/`ITCH_GAME`, and
+"SharedArrayBuffer support" ticked on the itch page).
+
+```bash
+"$GD" --headless --path . --export-release "Web" build/web/index.html
+python3 tools/serve_web.py          # http://localhost:8060
+```
+**Plain `python3 -m http.server` will NOT work** — the build has thread support,
+which needs SharedArrayBuffer, which the browser only grants a cross-origin
+isolated page. `tools/serve_web.py` sends the required
+`Cross-Origin-Opener-Policy`/`Cross-Origin-Embedder-Policy` headers; without
+them you get a blank canvas.
+
+Forward+ doesn't exist in a browser, so `renderer/rendering_method.web` is
+`gl_compatibility` (a per-platform override — desktop keeps Forward+). The web
+build therefore looks different: **SSAO is Forward+ only and is ignored**, and
+shadows and glow differ.
+
+Size is the constraint: the first working export was 935 MB. It's 125 MB pck /
+161 MB total after moving 1.41 GB of unused source models out of the project
+(they live in `~/Desktop/island-unused-models`, paths preserved) and capping
+texture imports at `process/size_limit=1024`. Next lever if needed: 512 for
+distant foliage and buildings.
+
+**Deciding what's unused is not just grepping for `res://` paths** —
+`city.gd:203` composes `"city_building_%d.glb"` at runtime, and an exclude
+filter built without that shipped a city with no buildings. Also, a texture file
+belongs to the LONGEST matching model stem (`shop_hd_base_color.jpg` is
+`shop_hd`'s, not `shop`'s). Verify with:
+`grep -a <model>.glb build/web/index.pck`
+
 ## Gotchas
 
 - `.ogg`/`.wav` default to looping on import — SFX force loop off in `sfx.gd`.

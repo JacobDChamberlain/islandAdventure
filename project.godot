@@ -34,11 +34,3 @@ window/size/viewport_height=720
 [rendering]
 
 rendering_device/driver.macos="vulkan"
-
-; Forward+ does not exist on the web -- it needs Vulkan, which browsers do not
-; expose -- so the web build runs the Compatibility (WebGL2) renderer. This is a
-; per-platform override, so desktop keeps Forward+ and the Metal->Vulkan fix
-; above. Consequences to expect in a browser: SSAO is Forward+ only and is
-; silently ignored, and shadows and glow differ. Test the web build on its own
-; terms rather than assuming it matches desktop.
-renderer/rendering_method.web="gl_compatibility"
