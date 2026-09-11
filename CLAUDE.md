@@ -295,12 +295,35 @@ auto-detect. Check new imports with:
 grep -l "detect_3d/compress_to=1" $(find . -name '*.import' ! -path './.godot/*')
 ```
 
+**macOS runs Vulkan on purpose — don't "fix" it back to Metal.**
+`rendering_device/driver.macos="vulkan"` in `project.godot`. The
+detect_3d fix above did NOT cure the black-asset bug, and neither did anything
+else at the data level: the debug dump (P then B) reads every texture back from
+the rendering server across all four slots, and seven captures taken *while*
+assets were black came back clean — including cases with no material property in
+common (the island's untextured vertex-coloured terrain; the city's emissive,
+fully textured artifacts). That pointed below the engine to the renderer, and
+Godot 4.5 defaults to Metal on Apple Silicon (godotengine/godot#95919 tracks its
+bugs). **This is an unconfirmed hypothesis, not a proven fix** — it was never
+reproduced on demand, so only play confirms it. If it recurs, the P-then-B
+report distinguishes RS-DATA GONE / ALL BLACK / healthy. A sighting in the
+BROWSER build would disprove the driver theory outright, since that is neither
+Metal nor Vulkan.
+
 ## Web build / itch.io
 
 `export_presets.cfg` holds a **Web** preset; `.github/workflows/deploy-itch.yml`
 builds it on every push to `main` and uploads with butler (needs repo secret
-`BUTLER_API_KEY` and repo variables `ITCH_USER`/`ITCH_GAME`, and
-"SharedArrayBuffer support" ticked on the itch page).
+`BUTLER_API_KEY` and repo variables `ITCH_USER`/`ITCH_GAME`, all three
+configured as of 2026-09-10). Live at **jchamberslam.itch.io/island-adventure**;
+every push to `main` now deploys, and butler only transfers the diff.
+
+Two itch-side things that are easy to miss. The channel name must contain
+"html" (`:html5`) or itch won't mark the build browser-playable. And a fresh
+project errors with *"You've selected a HTML5 game but haven't configured how
+your project is embedded"* until the **Embed options** block on the edit page
+has viewport dimensions (1280x720) and is **saved** — ticking
+"SharedArrayBuffer support" there is what stops the canvas coming up blank.
 
 ```bash
 "$GD" --headless --path . --export-release "Web" build/web/index.html
@@ -386,5 +409,14 @@ Matter + coin drops (arc-pop pickups), pickup toasts, HUD (live 3D head portrait
 particles + full audio, a long-day/
 short-night cycle, launch pads / moving + static platforms, settings, 3-slot
 save/load.
-Next ideas: more props (Meshy), deploy to itch.io (export → web build). See
-`docs/ROADMAP.md`.
+**Shipped to itch.io** (see "Web build / itch.io"): pushing `main` builds the
+web export and uploads it automatically.
+Next ideas: more props (Meshy). See `docs/ROADMAP.md`.
+
+**Open / unverified**, so nobody assumes these are settled:
+- The browser build has not been played through by anyone yet. It is the
+  Compatibility renderer, so lighting, shadows and glow differ from the editor.
+- **Driving the car appeared to crash the browser build.** Untriaged, no console
+  output captured. Chrome automation can serve the build, drive, and read the
+  console rather than guessing.
+- The black-asset fix (Metal → Vulkan) is unconfirmed — see the note above.
