@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://bgvswgw24y3bs"
+path="res://.godot/imported/Daft Punk - Revolution 909 (Official Audio).mp3-26d3aa132d84a9b2addeb817a20d1cef.mp3str"
+
+[deps]
+
+source_file="res://assets/audio/Daft Punk - Revolution 909 (Official Audio).mp3"
+dest_files=["res://.godot/imported/Daft Punk - Revolution 909 (Official Audio).mp3-26d3aa132d84a9b2addeb817a20d1cef.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

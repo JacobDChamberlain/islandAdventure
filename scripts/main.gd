@@ -11,6 +11,7 @@ extends Node3D
 @export var upgrades_per_kind: int = 5   # one of each is far too few on a map this size
 @export var upgrade_respawn_delay: float = 45.0  # a taken upgrade comes back elsewhere
 @export var pickup_spread: float = 0.85    # fraction of the map radius to scatter within
+@export var radio: bool = false             # play the radio playlist (radio.gd) instead of one Music track
 var _tod: float = 0.16                    # time of day, 0..1 (starts mid-morning)
 
 const ENEMY_SCENE := preload("res://scenes/enemy.tscn")
@@ -18,12 +19,15 @@ const ENEMY_SCENE := preload("res://scenes/enemy.tscn")
 @onready var _sun: DirectionalLight3D = $Sun
 var _env: Environment
 var _sky: ProceduralSkyMaterial
+var _lamps: Node3D   # street lamps / island lanterns (lamps.gd), lit by _update_day_night
 
 func _ready() -> void:
 	_sun.directional_shadow_max_distance = 110.0
 	_env = $WorldEnvironment.environment
 	_sky = _env.sky.sky_material
 	_env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	_lamps = load("res://scripts/lamps.gd").new()
+	add_child(_lamps)
 	_update_day_night()
 
 	# Arrive in THIS world: its own artifacts/quest come back, your coins and
@@ -40,6 +44,9 @@ func _ready() -> void:
 	# Track the heads that start in the level so we can respawn them when stomped.
 	for e in get_tree().get_nodes_in_group("enemy"):
 		_register_enemy(e)
+
+	if radio:
+		add_child(load("res://scripts/radio.gd").new())
 
 	# Fade the island music in over 5s (it starts silent at -40 dB).
 	var music := get_node_or_null("Music") as AudioStreamPlayer
@@ -74,6 +81,9 @@ func _update_day_night() -> void:
 
 	# Heads hunt harder once the light drops toward dusk/night.
 	Game.is_night = daylight < 0.15
+
+	# Lamps come on through dusk: off above 0.35 daylight, full by 0.1.
+	_lamps.set_glow((0.35 - daylight) / 0.25)
 
 	# Sun angle + light.
 	_sun.rotation_degrees = Vector3(-(s * 80.0 + 10.0), -40.0, 0.0)

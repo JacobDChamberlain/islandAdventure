@@ -13,17 +13,24 @@ extends Node3D
 # city's edge. Unlike the repeated buildings these keep their proportions —
 # scaled uniformly to the block's footprint rather than stretched to its height —
 # so a low-slung bar doesn't get pulled into a tower.
+# (Reno's used to stand here too. Measured 2026-10-03 it cost ~8 ms a frame on
+# its own — 40 fps with it in view, 60 without — while Charlie's cost nothing
+# measurable, so Reno's went. The island still has its own.)
 @export var landmark_models: Array[String] = [
-	"res://assets/models/renos.glb",       # the island's bar, now downtown too
 	"res://assets/models/charlies.glb",
 ]
 # Longest horizontal axis in metres, PER landmark (parallel to landmark_models).
 # Meshy models come out at wildly different internal scales — Charlie's people
 # were twice the hero's height — so one shared size doesn't work.
-@export var landmark_footprints: Array[float] = [22.7, 12.0]
+@export var landmark_footprints: Array[float] = [10.5]
 @export var landmark_footprint: float = 22.7   # fallback for any extra entries
 @export var landmark_lift: float = 0.08        # sit just proud of the road, never flush
 @export var landmark_max_floors: int = 3        # only replace genuinely short blocks
+# The Meshy buildings were modelled tall and thin, so they keep their own
+# proportions (uniform scale to fit the block) instead of being stretched to the
+# greybox block's height — which squashed most of them flat. Capped so a rooftop
+# stays within reach of the grapple's reel.
+@export var model_max_height: float = 64.0
 @export var landmark_edge_margin: float = 2.5   # how close to the rim (in blocks)
 @export var extent: float = 260.0        # half-width of the ground (spans -extent..extent) — ~10x island area
 @export var cells: int = 160             # ground grid resolution (collision trimesh)
@@ -43,6 +50,10 @@ extends Node3D
 const CURB_LAYER := 5                     # car masks this; the player ignores it (steps over freely)
 
 var _ground := FastNoiseLite.new()
+# Blocks whose building is a MODEL (Meshy building or landmark), keyed "ix,iz" →
+# the model's top Y. Their roofs aren't at floors * floor_height, so
+# building_top_at() asks the real geometry instead.
+var _model_tops := {}
 
 func _pitch() -> float:
 	return block_size + road_width   # road centerlines sit on multiples of this
@@ -121,7 +132,30 @@ func building_top_at(x: float, z: float) -> float:
 	var iz := _block_index(z)
 	if not _block_has_building(ix, iz):
 		return height_at(x, z)
+	var key := "%d,%d" % [ix, iz]
+	if _model_tops.has(key):
+		return _model_roof_at(x, z, ix, iz, _model_tops[key])
 	return height_at(_block_center(ix), _block_center(iz)) + _building_floors(ix, iz) * floor_height
+
+# A model's roof isn't flat or block-sized, so cast down onto its trimesh. Also
+# samples a step in toward the block centre, because the grapple asks about a
+# point ON a wall face, where a ray straight down can slip past the roof edge.
+# If the ray finds nothing at all, physics isn't up yet (we're still in _ready):
+# report the model's top, the safe answer for "is there a building here?".
+func _model_roof_at(x: float, z: float, ix: int, iz: int, top: float) -> float:
+	var space := get_world_3d().direct_space_state
+	var ground := height_at(x, z)
+	var inward := Vector2(_block_center(ix) - x, _block_center(iz) - z)
+	inward = inward.normalized() * 1.5 if inward.length() > 1.5 else Vector2.ZERO
+	var best := -INF
+	for pt in [Vector2(x, z), Vector2(x, z) + inward]:
+		var from := Vector3(pt.x, top + 2.0, pt.y)
+		var q := PhysicsRayQueryParameters3D.create(from, Vector3(pt.x, ground - 1.0, pt.y))
+		q.collision_mask = 1
+		var hit := space.intersect_ray(q)
+		if not hit.is_empty():
+			best = maxf(best, hit.position.y)
+	return top if best == -INF else best
 
 # --- Ground mesh (colored by road / plaza / park / sidewalk) ------------------
 
@@ -253,7 +287,7 @@ func _build_city() -> void:
 			# A landmark claims this block outright.
 			var key := "%d,%d" % [ix, iz]
 			if landmark_at.has(key):
-				_place_landmark(landmark_at[key], cx, cz, gy, fw, fd)
+				_model_tops[key] = _place_landmark(landmark_at[key], cx, cz, gy, fw, fd)
 				continue
 
 			# Deterministic per block, so the skyline is stable between runs.
@@ -261,16 +295,17 @@ func _build_city() -> void:
 			if not models.is_empty() and _hash01(ix, iz, 29) < model_building_share:
 				pick = int(_hash01(ix, iz, 31) * float(models.size())) % models.size()
 			if pick >= 0:
-				# Scale the model onto this block's footprint and stand it on the
-				# ground: its own origin may sit anywhere inside its bounds.
+				# Fit the model inside this block's footprint at its OWN
+				# proportions (one uniform scale), so a tower stays a tower, and
+				# stand it on the ground: its origin may sit anywhere in its bounds.
 				var box: AABB = model_aabb[pick]
-				var sx: float = fw / maxf(box.size.x, 0.001)
-				var sy: float = h / maxf(box.size.y, 0.001)
-				var sz: float = fd / maxf(box.size.z, 0.001)
-				var mb := Basis().scaled(Vector3(sx, sy, sz))
-				var foot := Vector3(cx - (box.position.x + box.size.x * 0.5) * sx,
-					gy - box.position.y * sy,
-					cz - (box.position.z + box.size.z * 0.5) * sz)
+				var su: float = minf(fw / maxf(box.size.x, 0.001), fd / maxf(box.size.z, 0.001))
+				su = minf(su, model_max_height / maxf(box.size.y, 0.001))
+				var mb := Basis().scaled(Vector3.ONE * su)
+				var foot := Vector3(cx - (box.position.x + box.size.x * 0.5) * su,
+					gy - box.position.y * su,
+					cz - (box.position.z + box.size.z * 0.5) * su)
+				_model_tops[key] = gy + box.size.y * su
 				var m_xf := Transform3D(mb, foot)
 				model_xf[pick].append(m_xf)
 				# Collide with the actual geometry, so you walk on the real roof.
@@ -460,17 +495,18 @@ func _choose_landmark_blocks(n: int, rim: float) -> Dictionary:
 
 # Stand a landmark on its block at its own proportions, with a collider matching
 # what's actually drawn rather than the block it replaced.
-func _place_landmark(path: String, cx: float, cz: float, gy: float, fw: float, fd: float) -> void:
+# Returns the landmark's top Y (for building_top_at), or the ground if it failed.
+func _place_landmark(path: String, cx: float, cz: float, gy: float, fw: float, fd: float) -> float:
 	var want := landmark_footprint
 	var idx := landmark_models.find(path)
 	if idx >= 0 and idx < landmark_footprints.size():
 		want = landmark_footprints[idx]
 	var mesh := _plant_mesh(path)
 	if mesh == null:
-		return
+		return gy
 	var box := mesh.get_aabb()
 	if box.size.x <= 0.0 or box.size.z <= 0.0:
-		return
+		return gy
 	# Size every landmark to the SAME real-world footprint rather than to whatever
 	# block it landed on. Meshy models come out at wildly different internal
 	# scales — Charlie's had people twice the hero's height — and fitting them to
@@ -492,6 +528,7 @@ func _place_landmark(path: String, cx: float, cz: float, gy: float, fw: float, f
 	cs.shape = mesh.create_trimesh_shape()
 	body.add_child(cs)
 	add_child(body)
+	return gy + landmark_lift + box.size.y * s
 
 func _commit_multimesh(mesh: Mesh, xforms: Array[Transform3D], color: Color, colorize: bool = true) -> void:
 	if xforms.is_empty():

@@ -87,6 +87,13 @@ and exposes **`height_at(x, z)`** — the source of truth for ground height.
   pads/platforms all `await get_tree().process_frame` then set `global_position.y`.
   Artifacts support `extra_height` (float high, for launch-pad targets) +
   `snap_to_ground`.
+- **City model buildings keep their proportions** (`city.gd`): one uniform
+  scale fitting the block footprint, capped at `model_max_height`. Stretching
+  them to the greybox block height squashed them. Their roofs are therefore NOT
+  at `floors * floor_height`, so `building_top_at()` casts down onto the trimesh
+  for those blocks (`_model_tops`), and `snap_to_roof` artifacts wait two physics
+  frames before asking. Reno's was removed from the city: measured ~8 ms/frame
+  on its own (40 vs 60 fps), Charlie's ~0.
 - **Fitting a rigged model** (`player.gd _fit_aabb`, `enemy.gd _fit_model`): measure
   the **Skeleton3D bone extent**, not `mesh.get_aabb()` — Meshy bakes a ~100× scale
   into the rig, so the mesh AABB is tiny and makes the model gigantic.
@@ -202,6 +209,30 @@ and exposes **`height_at(x, z)`** — the source of truth for ground height.
   pathfinding; launch pads fling her (`_check_launch_pads`, she can't trigger
   their Area3D herself) and can't re-fire until she steps off — unless you're
   stood by the pad too, in which case you can both keep bouncing.
+- **Lamps** (`lamps.gd`, a Node3D main.gd adds in code): street lamps on one
+  sidewalk corner per city intersection (MultiMesh body + bulb, per-lamp
+  OmniLight + thin pole collider), wooden posts with swaying hanging lanterns on
+  the island. `main._update_day_night` drives `set_glow()` so they fade on at
+  dusk. No shadows, and lights distance-fade — the web build's Compatibility
+  renderer lets only 8 lights touch one mesh, and the city ground is one mesh.
+- **Big Biscuit mode** (`cat.gd`, bottom of file): a menu row while she's on a
+  walk. She grows (tween on `_set_grow`) to `big_size_mult` x the tallest head
+  in the level — ~110 m in the city — and fights: walks at you, and every
+  `big_attack_every` s drops a red ring where you stand that lands after
+  `big_attack_windup`. Tuned to be no harder than the biggest kaiju (8 HP, 1
+  damage, one-shot by a stomp). She has no collider, so `big_biscuit_body.gd`
+  stands in: a CharacterBody3D on layers 2+3 in group `"enemy"`, which is why
+  punches, bullets, the car's ram and the grapple all work on her untouched.
+  Its `model_height` is set to TWICE her height because the grapple aims at
+  `origin + model_height/2` and her origin is at her feet. Hooked giants get 2x
+  `grapple_max_time` (player.gd) — a 100 m reel doesn't fit in 2.5 s.
+- **City radio** (`radio.gd`, added by main.gd when the level's `radio` export
+  is on — city.tscn has no Music node any more): a hand-listed `SONGS` playlist,
+  shuffled once then cycled, with title · artist bottom-right (fades to
+  `label_alpha`). mp3s import looping, so it forces `loop = false`. Add a song =
+  add a row.
+- **T** swings the player camera round to face him (`_front_view` in player.gd);
+  it keeps the base -12 deg tilt, which from the front lands on his face.
 - **Night aggro**: enemies scale `detect_range`/`lose_range` by `night_detect_mult`
   and `chase_speed` by `night_speed_mult` whenever `Game.is_night` (see the
   `_detect_range()`/`_lose_range()`/`_chase_speed()` helpers in `enemy.gd`).

@@ -16,6 +16,8 @@ extends CharacterBody3D
 @export var cam_dialogue_height: float = 1.2
 var _cam_frac: float = 1.0   # 0..1 of the ideal distance, smoothed
 var _cine_blend: float = 0.0 # 0..1 toward the zoomed-in conversation framing
+var _front_view: bool = false # T: swing the camera round to look at his face
+var _front_blend: float = 0.0 # 0..1, eased, so the swing is an arc not a cut
 
 # --- How quickly speed changes (higher = snappier). Ground is tight; air keeps
 #     your momentum so a jump commits you to an arc instead of stopping dead. ---
@@ -459,7 +461,10 @@ func _grapple_step(delta: float) -> void:
 			return
 		_track_grapple_target()
 	var to_point := _grapple_point - global_position
-	if to_point.length() <= grapple_release_dist or _grapple_time >= grapple_max_time:
+	# A hooked giant (a 50 m kaiju, a 100 m Big Biscuit) is a longer haul than any
+	# rooftop, so the jam timeout gets twice as long.
+	var max_t := grapple_max_time * (2.0 if _grapple_target != null else 1.0)
+	if to_point.length() <= grapple_release_dist or _grapple_time >= max_t:
 		_end_grapple(true)
 	else:
 		velocity = to_point.normalized() * grapple_reel_speed
@@ -919,6 +924,7 @@ func _input(event: InputEvent) -> void:
 			KEY_G: _toggle_dance(anim_dance)
 			KEY_H: _toggle_dance(anim_dance2)
 			KEY_Q: _fire_grapple()
+			KEY_T: _front_view = not _front_view
 			# Shift crouches — but only with the gun away, since Shift is the
 			# scope while it's drawn.
 			KEY_SHIFT:
@@ -1109,8 +1115,11 @@ func _update_camera(delta: float) -> void:
 	_cine_blend = move_toward(_cine_blend, 1.0 if cine else 0.0, delta / 0.35)
 	var use_dist := lerpf(cam_distance, cam_dialogue_distance, _cine_blend)
 	var use_height := lerpf(cam_height, cam_dialogue_height, _cine_blend)
-	# Ideal camera spot: up + behind the player, in pivot space.
-	var offset := Vector3(0.0, use_height, use_dist)
+	# Ideal camera spot: up + behind the player, in pivot space — or, with T,
+	# swung round the same circle to IN FRONT of him, turned to face him.
+	_front_blend = move_toward(_front_blend, 1.0 if _front_view else 0.0, delta / 0.45)
+	var swing := smoothstep(0.0, 1.0, _front_blend) * PI
+	var offset := Basis(Vector3.UP, swing) * Vector3(0.0, use_height, use_dist)
 	var from := camera_pivot.global_position
 	var ideal := camera_pivot.to_global(offset)
 	var space := get_world_3d().direct_space_state
@@ -1128,3 +1137,6 @@ func _update_camera(delta: float) -> void:
 	else:
 		_cam_frac = lerpf(_cam_frac, target, 1.0 - pow(0.02, delta))
 	camera.position = offset * _cam_frac
+	# Same downward tilt either way (set in _ready) — from in front it lands
+	# right on his face.
+	camera.rotation.y = swing

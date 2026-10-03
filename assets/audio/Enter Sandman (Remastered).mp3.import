@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://bdfuuccow1nam"
+path="res://.godot/imported/Enter Sandman (Remastered).mp3-9d1bd2bc06a7c732d2cab34cc690e5ab.mp3str"
+
+[deps]
+
+source_file="res://assets/audio/Enter Sandman (Remastered).mp3"
+dest_files=["res://.godot/imported/Enter Sandman (Remastered).mp3-9d1bd2bc06a7c732d2cab34cc690e5ab.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

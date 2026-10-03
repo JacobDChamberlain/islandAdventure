@@ -45,6 +45,27 @@ const WALK_SRC := "Armature|Unreal Take|baselayer"
 @export var stuck_time: float = 2.5         # no progress for this long = she finds her own way
 @export var roof_hop_height: float = 4.0     # if you're this far above her...
 @export var roof_hop_reach: float = 9.0      # ...and this close, she hops up to you
+# --- Big Biscuit mode: a boss fight she offers while out on a walk -----------
+# Tuned to be NO harder than the level's biggest kaiju (8 HP, 1 damage a hit,
+# one-shot by a stomp on the head) — and slower, with a long, visible wind-up.
+@export var big_size_mult: float = 2.0       # her height vs the tallest head in the level
+@export var big_grow_time: float = 6.0
+@export var big_shrink_time: float = 3.0
+@export var big_hp: int = 8                  # the biggest city kaiju's max_hp
+@export var big_speed: float = 6.0           # a kaiju chases at 7.5
+@export var big_keep_distance: float = 16.0  # stops closing in once this near
+@export var big_attack_every: float = 3.5    # seconds between paw slams
+@export var big_attack_windup: float = 1.4   # the red ring's warning time (heads: 0.35 s)
+@export var big_attack_radius: float = 7.0   # step out of the ring and it misses
+@export var big_attack_reach: float = 45.0   # only slams when you're this close
+@export var big_reward_coins: int = 10
+@export_multiline var big_challenge_line: String = "Mrrrow. You want to see a BIG cat?\nCareful what you wish for, small human."
+@export_multiline var big_defeat_lines: PackedStringArray = [
+	"Mrrp. Good fight. You punch like a kitten, and I mean that as a compliment.",
+	"*licks paw* I let you win, obviously. Shall we carry on with our walk?",
+	"Thank you for the battle, small human. That's the most fun I've had since I knocked a cup off Spencer's table.",
+	"Purrrr. Fine. You win. Don't tell the other cats.",
+]
 
 var _model: Node3D
 var _anim: AnimationPlayer
@@ -73,6 +94,21 @@ var _steer_dir: Vector3 = Vector3.ZERO
 var _steer_hold: float = 0.0
 var _stuck_t: float = 0.0
 var _best_dist: float = 999.0
+enum Big { OFF, GROWING, FIGHT, SHRINKING }
+var _big: int = Big.OFF
+var _grow: float = 1.0          # size multiplier on top of her normal scale
+var _big_hp: int = 0
+var _big_body: CharacterBody3D = null   # big_biscuit_body.gd — what you actually hit
+var _big_box: Vector3 = Vector3.ZERO    # hurt box size (model-local, unrotated)
+var _big_box_at: Vector3 = Vector3.ZERO # ...and its centre
+var _big_top: float = 0.0               # her height above her feet
+var _big_atk_t: float = 0.0
+var _big_wind: float = -1.0             # > 0 while a paw slam is winding up
+var _big_ring: MeshInstance3D = null
+var _big_bar: ProgressBar = null
+var _big_ui: CanvasLayer = null
+var _big_step_t: float = 0.0
+var _big_voice: AudioStreamPlayer = null
 @onready var prompt: Label3D = $Prompt
 
 func _ready() -> void:
@@ -237,6 +273,9 @@ func _enter_walk() -> void:
 
 func _process(delta: float) -> void:
 	_update_prompt()
+	if _big != Big.OFF:
+		_big_step(delta)
+		return
 	if _talking:
 		return   # sit still while the menu/dialogue is up
 	if _pad_cd > 0.0:
@@ -495,7 +534,7 @@ func _update_prompt() -> void:
 	if prompt == null:
 		return
 	var p := get_tree().get_first_node_in_group("player") as Node3D
-	prompt.visible = _player_near and not _talking and not Dialogue.active \
+	prompt.visible = _player_near and not _talking and not Dialogue.active and _big == Big.OFF \
 		and p != null and _wins_interact(p)
 
 func _on_zone_entered(body: Node3D) -> void:
@@ -510,7 +549,7 @@ func _on_zone_exited(body: Node3D) -> void:
 		prompt.visible = false
 
 func _input(event: InputEvent) -> void:
-	if not _player_near or Dialogue.active or _talking:
+	if not _player_near or Dialogue.active or _talking or _big != Big.OFF:
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_E:
 		var player := get_tree().get_first_node_in_group("player") as Node3D
@@ -573,11 +612,18 @@ func _main_items() -> Array:
 			"note": "She stays put here and goes back to her pottering.",
 			"enabled": true,
 		}
-	return [
+	var rows := [
 		{"id": "shop", "name": "Enter shop", "note": "Hook, blaster, ammo, upgrades."},
 		walk_row,
-		{"id": "leave", "name": "Leave", "note": "Back to it."},
 	]
+	if _following:
+		rows.append({
+			"id": "big", "name": "Big Biscuit mode",
+			"note": "She grows. A LOT. Then you two fight.",
+			"enabled": true,
+		})
+	rows.append({"id": "leave", "name": "Leave", "note": "Back to it."})
+	return rows
 
 # --- Shop window --------------------------------------------------------------
 
@@ -635,6 +681,10 @@ func _on_chosen(id: String) -> void:
 			_home = global_position
 			_enter_sit()
 			_menu.close()
+			return
+		"big":
+			_menu.close()
+			_start_big.call_deferred()
 			return
 		"leave":
 			_menu.close()
@@ -707,3 +757,275 @@ func _focus_camera(p: Node3D) -> void:
 	cam.global_position = global_position + to_player * 1.1 + Vector3.UP * 0.2   # near the floor, close
 	cam.look_at(global_position + Vector3.UP * 0.55, Vector3.UP)                 # look up at her
 	cam.current = true
+
+# --- Big Biscuit mode ---------------------------------------------------------
+# She throws down the gauntlet, grows to twice the tallest head in the level,
+# and fights you. Beat her (8 hits, or one stomp on her head) and she shrinks
+# back, says her piece, and carries on with the walk.
+
+func _start_big() -> void:
+	if _big != Big.OFF:
+		return
+	_clear_fetch()
+	# The challenge, in the usual close-up.
+	_talking = true
+	_enter_sit()
+	Game.cinematic = true
+	_face_conversation()
+	Dialogue.start(shop_name, [big_challenge_line])
+	await Dialogue.finished
+	_end_talk()
+	_big = Big.GROWING
+	_enter_walk()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	# Measure her as she stands now and work out how much to grow.
+	var now_h := _skeleton_aabb(_model).size.y * _model.scale.y
+	var factor := big_size_mult * _tallest_head() / maxf(now_h, 0.01)
+	Sfx.exotic()
+	var tw := create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_method(_set_grow, 1.0, factor, big_grow_time)
+	# A rumble as she goes up.
+	for i in 5:
+		get_tree().create_timer(big_grow_time * (0.15 + i * 0.18)).timeout.connect(_rumble)
+	await tw.finished
+	_begin_fight()
+
+func _rumble() -> void:
+	if _big == Big.OFF:
+		return
+	Sfx.stomp()
+	Fx.poof(global_position + Vector3.UP * 0.5, Color(0.85, 0.75, 0.6), 20, 1.5 + _grow * 0.02)
+
+# Twice the tallest head is the brief. Looked up live, so it holds wherever she
+# is; 52 m (the city's biggest kaiju) if there are no heads around at all.
+func _tallest_head() -> float:
+	var best := 0.0
+	for e in get_tree().get_nodes_in_group("enemy"):
+		if e is Node3D and "model_height" in e and e != _big_body:
+			best = maxf(best, e.model_height * e.global_transform.basis.get_scale().y)
+	return best if best > 0.0 else 52.0
+
+func _set_grow(g: float) -> void:
+	_grow = g
+	if _model:
+		_model.scale = Vector3.ONE * _base_scale * _walk_scale_mult * g
+	if _anim:
+		_anim.speed_scale = clampf(1.0 / sqrt(g), 0.3, 1.0)   # giant legs swing slow
+	_snap_big()
+
+# Giant feet go on the STREET (height_at), never on a rooftop she's straddling.
+func _snap_big() -> void:
+	if _island != null and _island.has_method("height_at"):
+		global_position.y = _island.height_at(global_position.x, global_position.z)
+
+func _begin_fight() -> void:
+	# A box around her bones (padded: fur and paws stick out past the joints),
+	# measured now she's full size, in the model's own unrotated frame.
+	var bones := _skeleton_aabb(_model)
+	var s := _model.scale.y
+	_big_box = Vector3(bones.size.x * 1.3, bones.end.y * 1.08, bones.size.z * 1.3) * s
+	_big_box_at = Vector3((bones.position.x + bones.size.x * 0.5) * s,
+		_big_box.y * 0.5 + _model.position.y,
+		(bones.position.z + bones.size.z * 0.5) * s)
+	_big_top = _big_box.y
+	_big_body = CharacterBody3D.new()
+	_big_body.set_script(load("res://scripts/big_biscuit_body.gd"))
+	_big_body.cat = self
+	_big_body.model_height = _big_top * 2.0
+	var cs := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = _big_box
+	cs.shape = shape
+	cs.position = _big_box_at
+	_big_body.add_child(cs)
+	add_child(_big_body)
+	_big_hp = big_hp
+	_big_atk_t = big_attack_every * 0.6
+	_big_wind = -1.0
+	_build_big_ui()
+	_big = Big.FIGHT
+
+func _big_step(delta: float) -> void:
+	if _big != Big.FIGHT:
+		return                                    # the grow/shrink tweens drive her
+	if _big_body:
+		_big_body.rotation.y = _model.rotation.y   # the hurt box turns with her
+	var player := get_tree().get_first_node_in_group("player") as Node3D
+	if player == null or Game.cinematic or Dialogue.active:
+		return
+	var to := player.global_position - global_position
+	to.y = 0.0
+	var dist := to.length()
+	_face(to, delta)
+	var moving := false
+	if _big_wind > 0.0:
+		_big_wind -= delta
+		if _big_ring:
+			var pulse := 1.0 + 0.08 * sin(_big_wind * 18.0)
+			_big_ring.scale = Vector3(pulse, 1.0, pulse)
+		if _big_wind <= 0.0:
+			_big_slam(player)
+	else:
+		if dist > big_keep_distance:
+			global_position += to / dist * big_speed * delta
+			moving = true
+		_big_atk_t -= delta
+		if _big_atk_t <= 0.0 and dist < big_attack_reach:
+			_big_windup(player)
+	if _anim:
+		_anim.speed_scale = 0.3 if moving else 0.06
+	if moving:
+		_big_step_t -= delta
+		if _big_step_t <= 0.0:
+			_big_step_t = 1.1
+			Sfx.stomp()
+	_snap_big()
+	_check_big_stomp(player)
+
+# The tell: a red ring where you're standing. It lands when the wind-up ends,
+# wherever you are by then — so moving out of it is the whole trick.
+func _big_windup(player: Node3D) -> void:
+	_big_wind = big_attack_windup
+	if _big_ring == null:
+		_big_ring = MeshInstance3D.new()
+		var m := CylinderMesh.new()
+		m.top_radius = big_attack_radius
+		m.bottom_radius = big_attack_radius
+		m.height = 0.12
+		m.radial_segments = 32
+		_big_ring.mesh = m
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.albedo_color = Color(1.0, 0.15, 0.1, 0.45)
+		_big_ring.material_override = mat
+		_big_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		get_parent().add_child(_big_ring)
+	var at := player.global_position
+	var gy := at.y
+	if _island and _island.has_method("height_at"):
+		gy = _island.height_at(at.x, at.z)
+	_big_ring.global_position = Vector3(at.x, maxf(gy, at.y - 1.0) + 0.08, at.z)
+	_big_ring.visible = true
+	# A deep, warped growl as the paw goes up.
+	if _big_voice == null:
+		_big_voice = AudioStreamPlayer.new()
+		_big_voice.volume_db = 2.0
+		add_child(_big_voice)
+	_big_voice.stream = Sfx.random_weird()
+	_big_voice.pitch_scale = 0.55
+	_big_voice.play()
+
+func _big_slam(player: Node3D) -> void:
+	_big_atk_t = big_attack_every
+	if _big_ring == null:
+		return
+	_big_ring.visible = false
+	var at := _big_ring.global_position
+	Fx.poof(at, Color(0.9, 0.8, 0.65), 30, 3.0)
+	Sfx.stomp()
+	var flat := Vector2(player.global_position.x - at.x, player.global_position.z - at.z).length()
+	if flat <= big_attack_radius and player.global_position.y < at.y + 5.0 \
+			and player.has_method("take_hit"):
+		player.take_hit(at)
+
+# Landing on top of her is a stomp, same as on a head: one and done.
+func _check_big_stomp(player: Node3D) -> void:
+	if _big_body == null or not ("velocity" in player) or player.velocity.y >= 0.0:
+		return
+	var local := _big_body.global_transform.affine_inverse() * player.global_position
+	var rel := local - _big_box_at
+	if absf(rel.x) <= _big_box.x * 0.5 and absf(rel.z) <= _big_box.z * 0.5 \
+			and local.y > _big_top - 4.0 and local.y < _big_top + 6.0:
+		if player.has_method("bounce"):
+			player.bounce()
+		_big_defeat()
+
+func boss_hit(damage: int) -> void:
+	if _big != Big.FIGHT:
+		return
+	_big_hp -= maxi(damage, 1)
+	Sfx.hit()
+	if _big_bar:
+		_big_bar.value = _big_hp
+	# A little flinch: she puffs up and settles.
+	var tw := create_tween()
+	tw.tween_method(_set_grow, _grow, _grow * 1.04, 0.08)
+	tw.tween_method(_set_grow, _grow * 1.04, _grow, 0.15)
+	if _big_hp <= 0:
+		_big_defeat()
+
+func _big_defeat() -> void:
+	if _big != Big.FIGHT:
+		return
+	_big = Big.SHRINKING
+	if _big_ring:
+		_big_ring.queue_free()
+		_big_ring = null
+	if _big_body:
+		_big_body.queue_free()
+		_big_body = null
+	if _big_ui:
+		_big_ui.queue_free()
+		_big_ui = null
+	Sfx.exotic()
+	Fx.poof(global_position + Vector3.UP * 2.0, Color(1.0, 0.85, 0.4), 40, 4.0)
+	var tw := create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_method(_set_grow, _grow, 1.0, big_shrink_time)
+	await tw.finished
+	_set_grow(1.0)
+	if _anim:
+		_anim.speed_scale = 1.0
+	_big = Big.OFF
+	# A purse for the winner, popped out like a head's loot.
+	var coin_scene := load("res://scenes/coin.tscn") as PackedScene
+	if coin_scene and get_parent():
+		for i in big_reward_coins:
+			var c := coin_scene.instantiate()
+			get_parent().add_child(c)
+			c.global_position = global_position + Vector3.UP * 1.0
+	# Then her verdict, in the usual close-up, and back to the walk.
+	_talking = true
+	_enter_sit()
+	Game.cinematic = true
+	_face_conversation()
+	Dialogue.finished.connect(_end_big_talk, CONNECT_ONE_SHOT)
+	Dialogue.start(shop_name, [big_defeat_lines[_rng.randi() % big_defeat_lines.size()]])
+
+func _end_big_talk() -> void:
+	_end_talk()
+	_following = true
+	_sitting = false
+
+func _build_big_ui() -> void:
+	_big_ui = CanvasLayer.new()
+	_big_ui.layer = 5            # under the pause menu (10)
+	add_child(_big_ui)
+	var box := VBoxContainer.new()
+	box.anchor_left = 0.5
+	box.anchor_right = 0.5
+	box.offset_left = -230.0
+	box.offset_right = 230.0
+	box.offset_top = 24.0
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_big_ui.add_child(box)
+	var title := Label.new()
+	title.text = "BIG BISCUIT"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 26)
+	title.add_theme_color_override("font_outline_color", Color.BLACK)
+	title.add_theme_constant_override("outline_size", 6)
+	box.add_child(title)
+	_big_bar = ProgressBar.new()
+	_big_bar.max_value = big_hp
+	_big_bar.value = big_hp
+	_big_bar.show_percentage = false
+	_big_bar.custom_minimum_size = Vector2(460, 18)
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = Color(1.0, 0.62, 0.2)
+	_big_bar.add_theme_stylebox_override("fill", fill)
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0, 0, 0, 0.55)
+	_big_bar.add_theme_stylebox_override("background", bg)
+	box.add_child(_big_bar)

@@ -100,6 +100,11 @@ func _snap_to_ground() -> void:
 		_base_y = position.y
 		return
 	await get_tree().process_frame
+	if snap_to_roof:
+		# The city reads a model building's roof off its collision mesh, which
+		# the physics world only knows about after it has stepped.
+		await get_tree().physics_frame
+		await get_tree().physics_frame
 	var island := get_tree().get_first_node_in_group("island")
 	if island == null:
 		_base_y = position.y
