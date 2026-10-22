@@ -21,6 +21,10 @@ func _ready() -> void:
 	$Panel/Margin/VBox/ResRow/Heal.pressed.connect(func(): Game.revive(); _refresh())
 	$Panel/Margin/VBox/GoRow/GoCity.pressed.connect(func(): _goto("res://scenes/city.tscn"))
 	$Panel/Margin/VBox/GoRow/GoIsland.pressed.connect(func(): _goto("res://scenes/main.tscn"))
+	var go_valley := Button.new()   # added in code so debug_menu.tscn needn't change
+	go_valley.text = "Sky Valley"
+	$Panel/Margin/VBox/GoRow.add_child(go_valley)
+	go_valley.pressed.connect(func(): _goto("res://scenes/valley.tscn"))
 	$Panel/Margin/VBox/WeaponRow/RemoveUpgrade.pressed.connect(_remove_upgrade)
 	$Panel/Margin/VBox/WeaponRow/GiveGun.pressed.connect(_give_gun)
 	$Panel/Margin/VBox/Reset.pressed.connect(_reset_run)

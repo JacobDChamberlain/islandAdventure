@@ -95,6 +95,10 @@ func _update_day_night() -> void:
 	var base_hor := Color(0.05, 0.04, 0.12).lerp(Color(0.72, 0.86, 0.96), daylight)
 	var sunset_amt := clampf(1.0 - abs(s) * 4.0, 0.0, 1.0) * clampf(daylight + 0.3, 0.0, 1.0)
 	_sky.sky_horizon_color = base_hor.lerp(Color(0.95, 0.45, 0.2), sunset_amt)
+	# Distance haze (Sky Valley) takes the horizon's colour, so it's blue by day,
+	# orange at sunset and dark at night instead of a fixed grey.
+	if _env.fog_enabled:
+		_env.fog_light_color = _sky.sky_horizon_color
 
 	# Ambient (kept bright enough at night to still see).
 	_env.ambient_light_color = Color(0.16, 0.19, 0.32).lerp(Color(0.6, 0.64, 0.7), daylight)

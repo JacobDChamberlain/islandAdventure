@@ -1,0 +1,538 @@
+[gd_scene format=3 uid="uid://c0valley00001"]
+
+[ext_resource type="Script" uid="uid://cx1j2tkv7s33g" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://bpsjqrqpvx2nr" path="res://scripts/player.gd" id="2_player"]
+[ext_resource type="Script" uid="uid://n626eyomaieg" path="res://scripts/hud.gd" id="5_hud"]
+[ext_resource type="PackedScene" uid="uid://bmg311s4voeki" path="res://assets/models/hero_anim_merged.glb" id="6_hero"]
+[ext_resource type="Script" uid="uid://dnmnqgoj52ip5" path="res://scripts/head_portrait.gd" id="7_headportrait"]
+[ext_resource type="Shader" uid="uid://d0su8br5w0hx8" path="res://assets/materials/circle_portrait.gdshader" id="8_circle"]
+[ext_resource type="Script" path="res://scripts/valley.gd" id="9_valley"]
+[ext_resource type="Script" path="res://scripts/pause_menu.gd" id="10_pause"]
+[ext_resource type="Script" path="res://scripts/end_screen.gd" id="11_end"]
+[ext_resource type="PackedScene" uid="uid://c0itemicon01" path="res://scenes/item_icon.tscn" id="16_icon"]
+[ext_resource type="PackedScene" uid="uid://4m4byd8hohb3" path="res://assets/models/artifact.glb" id="17_artglb"]
+[ext_resource type="PackedScene" uid="uid://dxibqbfk7hkoa" path="res://assets/models/exotic_matter.glb" id="18_exoglb"]
+[ext_resource type="PackedScene" uid="uid://c0coinmesh01" path="res://scenes/coin_mesh.tscn" id="19_coinmesh"]
+[ext_resource type="PackedScene" uid="uid://c0portal0001" path="res://scenes/portal.tscn" id="21_portal"]
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
+sky_top_color = Color(0.32, 0.58, 0.9, 1)
+sky_horizon_color = Color(0.72, 0.86, 0.96, 1)
+ground_bottom_color = Color(0.3, 0.42, 0.32, 1)
+ground_horizon_color = Color(0.72, 0.86, 0.96, 1)
+
+[sub_resource type="Sky" id="Sky"]
+sky_material = SubResource("SkyMat")
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 2
+sky = SubResource("Sky")
+ambient_light_source = 3
+tonemap_mode = 2
+glow_enabled = true
+glow_intensity = 0.6
+glow_bloom = 0.05
+fog_enabled = true
+fog_light_color = Color(0.72, 0.86, 0.96, 1)
+fog_density = 0.0007
+fog_aerial_perspective = 0.3
+fog_sky_affect = 0.25
+
+[sub_resource type="BoxShape3D" id="AttackBox"]
+size = Vector3(1.8, 2, 2.6)
+
+[sub_resource type="CapsuleShape3D" id="CapShape"]
+
+[sub_resource type="ShaderMaterial" id="PortraitMat"]
+shader = ExtResource("8_circle")
+shader_parameter/bg_color = Color(0.08, 0.1, 0.14, 1)
+shader_parameter/ring_color = Color(0.95, 0.55, 0.15, 1)
+shader_parameter/ring_thickness = 0.1
+
+[sub_resource type="StyleBoxFlat" id="HealthBg"]
+bg_color = Color(0.05, 0.06, 0.09, 0.85)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0, 0, 0, 0.5)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="HealthFill"]
+bg_color = Color(0.35, 0.85, 0.4, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StatsPanel"]
+bg_color = Color(0.04, 0.05, 0.08, 0.62)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0, 0, 0, 0.45)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+content_margin_left = 14.0
+content_margin_top = 12.0
+content_margin_right = 14.0
+content_margin_bottom = 12.0
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+shadow_enabled = true
+
+[node name="Valley" type="Node3D" parent="."]
+script = ExtResource("9_valley")
+
+[node name="Player" type="CharacterBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 20, 232)
+script = ExtResource("2_player")
+can_fly = true
+speed = 13.0
+jump_velocity = 19.0
+gravity = 60.0
+air_accel = 35.0
+air_decel = 20.0
+
+[node name="Model" parent="Player" instance=ExtResource("6_hero")]
+
+[node name="Collision" type="CollisionShape3D" parent="Player"]
+shape = SubResource("CapShape")
+
+[node name="AttackHitbox" type="Area3D" parent="Player"]
+collision_layer = 0
+collision_mask = 2
+
+[node name="Shape" type="CollisionShape3D" parent="Player/AttackHitbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.3)
+shape = SubResource("AttackBox")
+
+[node name="CameraPivot" type="Node3D" parent="Player"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+
+[node name="Camera3D" type="Camera3D" parent="Player/CameraPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 5)
+
+[node name="PortalToCity" parent="." instance=ExtResource("21_portal")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 0, 245)
+target_scene = "res://scenes/city.tscn"
+label_text = "CITY"
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="HUD" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("5_hud")
+
+[node name="PortraitViewport" type="SubViewport" parent="UI/HUD"]
+own_world_3d = true
+transparent_bg = true
+handle_input_locally = false
+size = Vector2i(256, 256)
+render_target_update_mode = 4
+
+[node name="PortraitRoot" type="Node3D" parent="UI/HUD/PortraitViewport"]
+script = ExtResource("7_headportrait")
+
+[node name="Model" parent="UI/HUD/PortraitViewport/PortraitRoot" instance=ExtResource("6_hero")]
+
+[node name="Camera3D" type="Camera3D" parent="UI/HUD/PortraitViewport/PortraitRoot"]
+
+[node name="Key" type="DirectionalLight3D" parent="UI/HUD/PortraitViewport/PortraitRoot"]
+
+[node name="Fill" type="DirectionalLight3D" parent="UI/HUD/PortraitViewport/PortraitRoot"]
+light_energy = 0.4
+
+[node name="ArtifactIconVP" parent="UI/HUD" instance=ExtResource("16_icon")]
+model_scene = ExtResource("17_artglb")
+glow_color = Color(1, 0.72, 0.28, 1)
+glow_energy = 2.2
+
+[node name="ExoticIconVP" parent="UI/HUD" instance=ExtResource("16_icon")]
+model_scene = ExtResource("18_exoglb")
+glow_color = Color(0.7, 0.36, 1, 1)
+glow_energy = 2.0
+
+[node name="CoinIconVP" parent="UI/HUD" instance=ExtResource("16_icon")]
+model_scene = ExtResource("19_coinmesh")
+spin_speed = 2.2
+
+[node name="StatsBg" type="Panel" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 14.0
+offset_right = 474.0
+offset_bottom = 250.0
+theme_override_styles/panel = SubResource("StatsPanel")
+
+[node name="Portrait" type="TextureRect" parent="UI/HUD"]
+material = SubResource("PortraitMat")
+layout_mode = 0
+offset_left = 30.0
+offset_top = 28.0
+offset_right = 158.0
+offset_bottom = 156.0
+expand_mode = 1
+
+[node name="HealthBar" type="ProgressBar" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 176.0
+offset_top = 40.0
+offset_right = 456.0
+offset_bottom = 74.0
+theme_override_styles/background = SubResource("HealthBg")
+theme_override_styles/fill = SubResource("HealthFill")
+max_value = 5.0
+value = 5.0
+show_percentage = false
+
+[node name="ArtifactIcon" type="TextureRect" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 176.0
+offset_top = 78.0
+offset_right = 218.0
+offset_bottom = 120.0
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ArtifactCount" type="Label" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 226.0
+offset_top = 80.0
+offset_right = 466.0
+offset_bottom = 116.0
+theme_override_colors/font_color = Color(1, 0.82, 0.15, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 26
+text = "0 / 0"
+vertical_alignment = 1
+
+[node name="ExoticIcon" type="TextureRect" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 176.0
+offset_top = 116.0
+offset_right = 218.0
+offset_bottom = 158.0
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ExoticCount" type="Label" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 226.0
+offset_top = 118.0
+offset_right = 466.0
+offset_bottom = 154.0
+theme_override_colors/font_color = Color(0.74, 0.42, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 26
+text = "0"
+vertical_alignment = 1
+
+[node name="CoinIcon" type="TextureRect" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 176.0
+offset_top = 154.0
+offset_right = 218.0
+offset_bottom = 196.0
+expand_mode = 1
+stretch_mode = 5
+
+[node name="CoinCount" type="Label" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 226.0
+offset_top = 156.0
+offset_right = 466.0
+offset_bottom = 192.0
+theme_override_colors/font_color = Color(1, 0.88, 0.32, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 26
+text = "0"
+vertical_alignment = 1
+
+[node name="LivesLabel" type="Label" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 176.0
+offset_top = 194.0
+offset_right = 466.0
+offset_bottom = 230.0
+theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 26
+text = "Lives   3"
+vertical_alignment = 1
+
+[node name="Controls" type="Label" parent="UI/HUD"]
+modulate = Color(1, 1, 1, 0.7)
+layout_mode = 0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -38.0
+offset_right = 900.0
+offset_bottom = -10.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 18
+text = "WASD move  ·  Dbl-tap W sprint  ·  Space jump  ·  LMB punch  ·  RMB kick (fly-kick midair)  ·  Stomp  ·  G/H dance  ·  Shift crouch  ·  L light  ·  V / jump in mid-air: FLY (Space up, C down)  ·  1 gun (hold LMB fire, Shift scope)  ·  Esc pause"
+
+[node name="DamageFlash" type="ColorRect" parent="UI/HUD"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.8, 0.05, 0.05, 0)
+
+[node name="ToastBox" type="Control" parent="UI/HUD"]
+layout_mode = 1
+anchor_left = 0.0
+anchor_top = 0.6
+anchor_right = 1.0
+anchor_bottom = 0.6
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PauseLayer" type="CanvasLayer" parent="."]
+process_mode = 3
+layer = 10
+
+[node name="PauseMenu" type="Control" parent="PauseLayer"]
+process_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("10_pause")
+
+[node name="Dim" type="ColorRect" parent="PauseLayer/PauseMenu"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.55)
+
+[node name="Main" type="VBoxContainer" parent="PauseLayer/PauseMenu"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -130.0
+offset_top = -175.0
+offset_right = 130.0
+offset_bottom = 195.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 12
+
+[node name="Paused" type="Label" parent="PauseLayer/PauseMenu/Main"]
+text = "PAUSED"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 48
+
+[node name="Resume" type="Button" parent="PauseLayer/PauseMenu/Main"]
+custom_minimum_size = Vector2(240, 44)
+text = "Resume"
+theme_override_font_sizes/font_size = 22
+
+[node name="Save" type="Button" parent="PauseLayer/PauseMenu/Main"]
+custom_minimum_size = Vector2(240, 44)
+text = "Save Game"
+theme_override_font_sizes/font_size = 22
+
+[node name="Load" type="Button" parent="PauseLayer/PauseMenu/Main"]
+custom_minimum_size = Vector2(240, 44)
+text = "Load Game"
+theme_override_font_sizes/font_size = 22
+
+[node name="Settings" type="Button" parent="PauseLayer/PauseMenu/Main"]
+custom_minimum_size = Vector2(240, 44)
+text = "Settings"
+theme_override_font_sizes/font_size = 22
+
+[node name="Restart" type="Button" parent="PauseLayer/PauseMenu/Main"]
+custom_minimum_size = Vector2(240, 44)
+text = "Restart"
+theme_override_font_sizes/font_size = 22
+
+[node name="QuitTitle" type="Button" parent="PauseLayer/PauseMenu/Main"]
+custom_minimum_size = Vector2(240, 44)
+text = "Quit to Title"
+theme_override_font_sizes/font_size = 22
+
+[node name="SettingsPanel" type="VBoxContainer" parent="PauseLayer/PauseMenu"]
+visible = false
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -210.0
+offset_top = -140.0
+offset_right = 210.0
+offset_bottom = 150.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 16
+
+[node name="SettingsTitle" type="Label" parent="PauseLayer/PauseMenu/SettingsPanel"]
+text = "SETTINGS"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 36
+
+[node name="VolumeRow" type="HBoxContainer" parent="PauseLayer/PauseMenu/SettingsPanel"]
+theme_override_constants/separation = 16
+
+[node name="Label" type="Label" parent="PauseLayer/PauseMenu/SettingsPanel/VolumeRow"]
+custom_minimum_size = Vector2(200, 0)
+text = "Master Volume"
+
+[node name="VolumeSlider" type="HSlider" parent="PauseLayer/PauseMenu/SettingsPanel/VolumeRow"]
+custom_minimum_size = Vector2(180, 0)
+size_flags_vertical = 1
+min_value = 0.0
+max_value = 1.0
+step = 0.05
+value = 0.8
+
+[node name="MusicRow" type="HBoxContainer" parent="PauseLayer/PauseMenu/SettingsPanel"]
+theme_override_constants/separation = 16
+
+[node name="Label" type="Label" parent="PauseLayer/PauseMenu/SettingsPanel/MusicRow"]
+custom_minimum_size = Vector2(200, 0)
+text = "Music Volume"
+
+[node name="MusicSlider" type="HSlider" parent="PauseLayer/PauseMenu/SettingsPanel/MusicRow"]
+custom_minimum_size = Vector2(180, 0)
+size_flags_vertical = 1
+min_value = 0.0
+max_value = 1.0
+step = 0.05
+value = 0.7
+
+[node name="SensRow" type="HBoxContainer" parent="PauseLayer/PauseMenu/SettingsPanel"]
+theme_override_constants/separation = 16
+
+[node name="Label" type="Label" parent="PauseLayer/PauseMenu/SettingsPanel/SensRow"]
+custom_minimum_size = Vector2(200, 0)
+text = "Mouse Sensitivity"
+
+[node name="SensSlider" type="HSlider" parent="PauseLayer/PauseMenu/SettingsPanel/SensRow"]
+custom_minimum_size = Vector2(180, 0)
+size_flags_vertical = 1
+min_value = 0.2
+max_value = 3.0
+step = 0.1
+value = 1.0
+
+[node name="FullRow" type="HBoxContainer" parent="PauseLayer/PauseMenu/SettingsPanel"]
+theme_override_constants/separation = 16
+
+[node name="Label" type="Label" parent="PauseLayer/PauseMenu/SettingsPanel/FullRow"]
+custom_minimum_size = Vector2(200, 0)
+text = "Fullscreen"
+
+[node name="FullCheck" type="CheckButton" parent="PauseLayer/PauseMenu/SettingsPanel/FullRow"]
+
+[node name="SettingsBack" type="Button" parent="PauseLayer/PauseMenu/SettingsPanel"]
+custom_minimum_size = Vector2(160, 42)
+text = "Back"
+
+[node name="SlotsPanel" type="VBoxContainer" parent="PauseLayer/PauseMenu"]
+visible = false
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -150.0
+offset_right = 200.0
+offset_bottom = 160.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 14
+
+[node name="SlotsTitle" type="Label" parent="PauseLayer/PauseMenu/SlotsPanel"]
+text = "SAVE GAME"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 36
+
+[node name="Slot1" type="Button" parent="PauseLayer/PauseMenu/SlotsPanel"]
+custom_minimum_size = Vector2(380, 46)
+text = "Slot 1"
+
+[node name="Slot2" type="Button" parent="PauseLayer/PauseMenu/SlotsPanel"]
+custom_minimum_size = Vector2(380, 46)
+text = "Slot 2"
+
+[node name="Slot3" type="Button" parent="PauseLayer/PauseMenu/SlotsPanel"]
+custom_minimum_size = Vector2(380, 46)
+text = "Slot 3"
+
+[node name="SlotsBack" type="Button" parent="PauseLayer/PauseMenu/SlotsPanel"]
+custom_minimum_size = Vector2(160, 42)
+text = "Back"
+
+[node name="EndLayer" type="CanvasLayer" parent="."]
+process_mode = 3
+layer = 20
+
+[node name="EndScreen" type="Control" parent="EndLayer"]
+process_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("11_end")
+
+[node name="Dim" type="ColorRect" parent="EndLayer/EndScreen"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.7)
+
+[node name="VBox" type="VBoxContainer" parent="EndLayer/EndScreen"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -110.0
+offset_right = 160.0
+offset_bottom = 110.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 18
+
+[node name="Title" type="Label" parent="EndLayer/EndScreen/VBox"]
+text = "GAME OVER"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 60
+
+[node name="PlayAgain" type="Button" parent="EndLayer/EndScreen/VBox"]
+custom_minimum_size = Vector2(260, 48)
+text = "Play Again"
+theme_override_font_sizes/font_size = 24
+
+[node name="QuitTitle" type="Button" parent="EndLayer/EndScreen/VBox"]
+custom_minimum_size = Vector2(260, 48)
+text = "Quit to Title"
+theme_override_font_sizes/font_size = 24

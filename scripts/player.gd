@@ -77,6 +77,26 @@ var _front_blend: float = 0.0 # 0..1, eased, so the swing is an arc not a cut
 @export var grapple_release_pop: float = 13.0    # upward pop on release so you crest the ledge
 @export var grapple_max_time: float = 2.5        # safety auto-release if we jam on a wall
 
+# --- Flight (gated per level: Sky Valley turns it on) ---
+# Jump again in mid-air with no jumps left (or press V) to take off. W flies
+# where you're LOOKING (pitch included), Space climbs, C descends, double-tap W
+# boosts. Touch down to land. No fuel — it's for exploring.
+@export var can_fly: bool = false
+@export var fly_speed: float = 16.0
+@export var fly_boost_speed: float = 44.0
+@export var fly_climb_speed: float = 13.0
+@export var fly_accel: float = 45.0
+@export var fly_lean_deg: float = 65.0           # superman lean at full speed
+var _flying: bool = false
+var _fly_lean: float = 0.0
+var _fly_t: float = 0.0
+var _wing_s: float = 0.0                         # wings unfold 0..1 on takeoff
+var _model_rest: Transform3D = Transform3D()    # the model's fitted transform, unleaned
+var _wings: Node3D = null
+var _wing_l: MeshInstance3D = null
+var _wing_r: MeshInstance3D = null
+var _trail: GPUParticles3D = null
+
 # --- Animation clip names (must match the clips baked into the .glb) ---
 @export var anim_idle: String = "Idle_6"
 @export var anim_run: String = "Running"
@@ -201,6 +221,9 @@ func _ready() -> void:
 	_setup_grapple_visuals()
 	_setup_lantern()
 	_setup_weapon()
+	if model:
+		_model_rest = model.transform
+	_setup_flight()
 	_snap_to_ground()
 
 func _snap_to_ground() -> void:
@@ -696,6 +719,11 @@ func _try_jump() -> void:
 	if _crouching:
 		_toggle_crouch()      # stand up rather than hopping in a crouch
 		return
+	if _flying:
+		return                # Space is "climb" while flying (held, polled in _fly_step)
+	if can_fly and not is_on_floor() and jumps_left <= 0:
+		_start_flying()       # out of jumps in mid-air: take off
+		return
 	if jumps_left > 0:
 		velocity.y = jump_velocity
 		jumps_left -= 1
@@ -857,6 +885,7 @@ func take_hit(source_pos: Vector3) -> void:
 # game_over and the end screen takes over, so we just stop).
 func _handle_death() -> void:
 	_cancel_dance()
+	_stop_flying()
 	if anim_death != "" and anim and anim.has_animation(anim_death):
 		_play_oneshot(anim_death, 1.0)
 	if Game.lose_life():
@@ -869,6 +898,7 @@ func _handle_death() -> void:
 #     camera. The vehicle calls these when you press E to get in / out.
 
 func board_vehicle() -> void:
+	_stop_flying()
 	_driving = true
 	velocity = Vector3.ZERO
 	visible = false
@@ -925,6 +955,7 @@ func _input(event: InputEvent) -> void:
 			KEY_H: _toggle_dance(anim_dance2)
 			KEY_Q: _fire_grapple()
 			KEY_T: _front_view = not _front_view
+			KEY_V: _toggle_flight()
 			# Shift crouches — but only with the gun away, since Shift is the
 			# scope while it's drawn.
 			KEY_SHIFT:
@@ -956,6 +987,10 @@ func _physics_process(delta: float) -> void:
 	# Grappling overrides normal movement: reel toward the anchor.
 	if _grappling:
 		_grapple_step(delta)
+		return
+
+	if _flying:
+		_fly_step(delta)
 		return
 
 	# Frozen in place while talking to an NPC (or during the Elder's finale).
@@ -1044,6 +1079,7 @@ func _physics_process(delta: float) -> void:
 		velocity.z = move_toward(velocity.z, target_z, rate * delta)
 
 	move_and_slide()
+	_check_bounce()
 	_check_stuck(delta, has_input, direction)
 	_update_animation()
 
@@ -1140,3 +1176,191 @@ func _update_camera(delta: float) -> void:
 	# Same downward tilt either way (set in _ready) — from in front it lands
 	# right on his face.
 	camera.rotation.y = swing
+
+# --- Bouncy surfaces --------------------------------------------------------------
+# Anything solid carrying a "bounce" meta (Sky Valley's mushroom caps) flings
+# you up when you land on it, like a launch pad you don't have to aim for.
+func _check_bounce() -> void:
+	for i in get_slide_collision_count():
+		var col := get_slide_collision(i)
+		var c := col.get_collider()
+		if c is Object and c.has_meta("bounce") and col.get_normal().y > 0.6:
+			launch(float(c.get_meta("bounce")))
+			Fx.poof(global_position + Vector3.DOWN * 0.8, Color(0.6, 0.9, 1.0), 10, 0.8)
+			return
+
+# --- Flight ---------------------------------------------------------------------------
+
+func _setup_flight() -> void:
+	# Two wings of light on his back that fold away when he lands.
+	_wings = Node3D.new()
+	_wings.position = Vector3(0, 0.35, 0.22)
+	add_child(_wings)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.albedo_color = Color(0.45, 0.9, 1.0, 0.75)
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var shape := PrismMesh.new()
+	shape.size = Vector3(0.55, 1.5, 0.04)
+	for side in [-1.0, 1.0]:
+		var w := MeshInstance3D.new()
+		w.mesh = shape
+		w.material_override = mat
+		w.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		w.position = Vector3(side * 0.75, 0.2, 0.0)
+		_wings.add_child(w)
+		if side < 0.0:
+			_wing_l = w
+		else:
+			_wing_r = w
+	_wings.scale = Vector3.ZERO
+	_wings.visible = false
+	# A sparkle trail left in the air behind him.
+	var pm := ParticleProcessMaterial.new()
+	pm.gravity = Vector3.ZERO
+	pm.initial_velocity_min = 0.2
+	pm.initial_velocity_max = 0.8
+	pm.spread = 180.0
+	pm.scale_min = 0.5
+	pm.scale_max = 1.2
+	var fade := Gradient.new()
+	fade.set_color(0, Color(0.7, 0.95, 1.0, 0.9))
+	fade.set_color(1, Color(0.4, 0.6, 1.0, 0.0))
+	var ramp := GradientTexture1D.new()
+	ramp.gradient = fade
+	pm.color_ramp = ramp
+	var dot := GradientTexture2D.new()
+	var g := Gradient.new()
+	g.set_color(0, Color(1, 1, 1, 1))
+	g.set_color(1, Color(1, 1, 1, 0))
+	dot.gradient = g
+	dot.fill = GradientTexture2D.FILL_RADIAL
+	dot.fill_from = Vector2(0.5, 0.5)
+	dot.fill_to = Vector2(0.5, 0.0)
+	var qm := StandardMaterial3D.new()
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	qm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	qm.vertex_color_use_as_albedo = true
+	qm.albedo_texture = dot
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.35, 0.35)
+	quad.material = qm
+	_trail = GPUParticles3D.new()
+	_trail.amount = 90
+	_trail.lifetime = 0.8
+	_trail.local_coords = false
+	_trail.process_material = pm
+	_trail.draw_pass_1 = quad
+	_trail.emitting = false
+	_trail.position = Vector3(0, 0.2, 0.3)
+	_trail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_trail)
+
+func _toggle_flight() -> void:
+	if _flying:
+		_stop_flying()          # drop out of the sky (jumps refilled, so you can recover)
+		jumps_left = max_jumps
+	elif can_fly:
+		if is_on_floor():
+			velocity.y = 9.0    # a hop to get airborne
+		_start_flying()
+
+func _start_flying() -> void:
+	if _flying or _driving:
+		return
+	_flying = true
+	_cancel_dance()
+	if _crouching:
+		_toggle_crouch()
+	Sfx.jump()
+	Fx.poof(global_position, Color(0.5, 0.9, 1.0), 14, 1.0)
+	# Hold the arms-out moment of the jump clip as the flying pose.
+	_anim_locked = false
+	if anim and anim.has_animation(anim_jump):
+		anim.play(anim_jump, 0.2)
+		anim.seek(0.45, true)
+		anim.pause()
+	_current_anim = ""
+	_wing_s = 0.0
+	if _wings:
+		_wings.visible = true
+
+func _stop_flying() -> void:
+	if not _flying:
+		return
+	_flying = false
+	_fly_lean = 0.0
+	if model:
+		model.transform = _model_rest
+	if _trail:
+		_trail.emitting = false
+	if _wings:
+		_wings.scale = Vector3.ZERO
+		_wings.visible = false
+		_wings.rotation = Vector3.ZERO
+	_current_anim = ""      # let _update_animation pick a clip again
+	if anim:
+		anim.play()
+
+func _fly_step(delta: float) -> void:
+	var frozen := Dialogue.active or Game.cinematic
+	var input := Vector3.ZERO
+	if not frozen:
+		if Input.is_physical_key_pressed(KEY_W):
+			input.z -= 1.0
+		if Input.is_physical_key_pressed(KEY_S):
+			input.z += 1.0
+		if Input.is_physical_key_pressed(KEY_A):
+			input.x -= 1.0
+		if Input.is_physical_key_pressed(KEY_D):
+			input.x += 1.0
+	if not Input.is_physical_key_pressed(KEY_W):
+		_sprinting = false
+	# Fly where you look: the pivot carries his yaw and the camera's pitch (but
+	# not the T front-view swing, so W is always "away from the camera's back").
+	var pb := camera_pivot.global_transform.basis
+	var dir := (-pb.z) * (-input.z) + pb.x * input.x
+	var spd := fly_boost_speed if _sprinting else fly_speed
+	var target := dir.normalized() * spd if dir.length() > 0.01 else Vector3.ZERO
+	if not frozen:
+		if Input.is_physical_key_pressed(KEY_SPACE):
+			target.y += fly_climb_speed
+		if Input.is_physical_key_pressed(KEY_C) or Input.is_physical_key_pressed(KEY_CTRL):
+			target.y -= fly_climb_speed
+	velocity = velocity.move_toward(target, fly_accel * delta)
+	move_and_slide()
+	# Touching down lands you — unless you're holding Space to lift off again.
+	if is_on_floor() and velocity.y <= 0.5 and not Input.is_physical_key_pressed(KEY_SPACE):
+		_stop_flying()
+		_update_camera(delta)
+		return
+	_update_fly_pose(delta)
+	_update_camera(delta)
+	if global_position.y < -2.0:
+		_handle_death()
+
+# Lean into the direction of travel (superman at full tilt), flap the wings,
+# and trail sparkles when going fast.
+func _update_fly_pose(delta: float) -> void:
+	_fly_t += delta
+	var fwd := -global_transform.basis.z
+	var fwd_speed := Vector3(velocity.x, 0, velocity.z).dot(Vector3(fwd.x, 0, fwd.z).normalized())
+	var want := clampf(fwd_speed / (fly_speed * 1.3), -0.3, 1.0) * deg_to_rad(fly_lean_deg)
+	_fly_lean = lerpf(_fly_lean, want, 1.0 - pow(0.002, delta))
+	var lean := Transform3D(Basis(Vector3.RIGHT, -_fly_lean), Vector3.ZERO)
+	if model:
+		model.transform = lean * _model_rest
+	if _wings:
+		_wing_s = move_toward(_wing_s, 1.0, delta * 4.0)
+		_wings.transform = lean * Transform3D(Basis().scaled(Vector3.ONE * maxf(_wing_s, 0.01)), Vector3(0, 0.35, 0.22))
+		var flap := 0.35 + sin(_fly_t * (9.0 if _sprinting else 5.0)) * 0.3
+		if _wing_l:
+			_wing_l.rotation = Vector3(0.4, 0.3, flap + 1.2)
+		if _wing_r:
+			_wing_r.rotation = Vector3(0.4, -0.3, -flap - 1.2)
+	if _trail:
+		_trail.emitting = velocity.length() > 9.0

@@ -259,6 +259,12 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 0)
 target_scene = "res://scenes/main.tscn"
 label_text = "ISLAND"
 
+[node name="PortalToValley" parent="." instance=ExtResource("21_portal")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, 0)
+target_scene = "res://scenes/valley.tscn"
+label_text = "SKY VALLEY"
+reveal_on_quest_complete = true
+
 [node name="Vehicle" parent="." instance=ExtResource("22_vehicle")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 6)
 

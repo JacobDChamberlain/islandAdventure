@@ -64,7 +64,9 @@ and does GUI work — the editor is a native app I can't click into.
   player, zooms the camera in, and makes enemies stand down.
 
 **Scenes**: `title.tscn` (synthwave shader bg) → `main.tscn` (the island) →
-`city.tscn` (level 2). **Both levels' roots are a `Main` node running `main.gd`** —
+`city.tscn` (level 2) → `valley.tscn` (**Sky Valley**, level 3 — portal in the
+city plaza opens when the city quest is done; DebugMenu has a "Sky Valley"
+button). **Both levels' roots are a `Main` node running `main.gd`** —
 so day/night, enemy respawn and the quest wiring are shared; only the ground
 differs (`island.gd` on `Island`, `city.gd` on `City`, both in group `"island"`
 and both exposing `height_at`/`is_walkable`). Don't read `city.gd` expecting
@@ -233,6 +235,45 @@ and exposes **`height_at(x, z)`** — the source of truth for ground height.
   add a row.
 - **T** swings the player camera round to face him (`_front_view` in player.gd);
   it keeps the base -12 deg tilt, which from the front lands on his face.
+- **Sky Valley** (`valley.gd` ground + `valley_decor.gd` everything on it).
+  An 800 m island ringed by mountains, laid out like Jak 1's opening areas:
+  village + dock + bridge (S), beach/sea, river from the mountains over a
+  waterfall (N), small city (W), glowing mushroom forest + volcano with a lava
+  flow (E), monolith plateau with a henge and a spire (NW), and floating islands
+  chained by stepping stones from the spire's top up to the Sky Temple (whose
+  beam is the landmark visible from everywhere). Landmark positions are the
+  consts at the top of `valley.gd`.
+  - Heights are computed ONCE into a grid (`_h`) from stamps (`_shape_height`:
+    mountains, shelf/scarp, flattened regions, volcano cone, coast/sea rim, tunnel
+    cover; then `_final_height` carves river + lava). Mesh, collision and
+    `height_at()` all read that grid; `height_at` interpolates the SAME triangle
+    split the mesh uses (a–c diagonal), not bilinear.
+  - The terrain is a chunked TRIMESH, not a heightfield, because **tunnels** need
+    holes: `_cut_by_tunnel` drops triangles inside a tunnel's tube near its
+    mouths, `_tunnel_cover` raises a ridge over the middle so it's underground,
+    and a rock gateway (`_rock_block`) hides the jagged cut. Tunnel floors are
+    planned from the ground at the two mouths BEFORE cover/carving.
+  - River beds are lowered below their own banks and forced downhill
+    (`_plan_river`), so water never floats over grass. The waterfall is design
+    segment `FALL_SEG`. Water/lava are shaders in `assets/materials/`.
+  - Lava (`lava_surface_at`) is a hazard checked in `valley.gd _physics_process`:
+    one hit and a big pop up, Jak-style.
+  - Decor is BATCHED (`_mesh` merges static pieces per material per 160 m tile;
+    pass `keep_node` for things that move) and foliage MultiMeshes are TILED with
+    `visibility_range_end` — one map-wide MultiMesh can't be culled. Measured
+    2026-10-03: 3.0M -> 0.3-0.8M triangles. GPU-bound on this Mac: ~38-46 fps,
+    on par with the city. SSAO is off in valley.tscn (cost ~3 ms, adds little
+    outdoors). No Meshy plant models here (28K tris each).
+  - Lamps: the level hands lamps.gd its own spots via `lamp_spots()`
+    ({kind: street|lantern, pos, yaw}); island/city still auto-place theirs.
+- **Flight** (`player.gd`, `can_fly` export — on only in valley.tscn): jump in
+  mid-air with no jumps left, or press V. W flies where the camera pivot looks
+  (pitch included), Space up, C/Ctrl down, double-tap W boost; touching the
+  ground lands. Pose = the jump clip paused at 0.45 s + a lean applied as a
+  transform on top of `_model_rest` (the fitted model transform), plus light
+  wings and a sparkle trail built in `_setup_flight`.
+- **Bouncy surfaces**: any collider with a `"bounce"` meta (the mushroom caps)
+  launches the player on landing (`_check_bounce`).
 - **Night aggro**: enemies scale `detect_range`/`lose_range` by `night_detect_mult`
   and `chase_speed` by `night_speed_mult` whenever `Game.is_night` (see the
   `_detect_range()`/`_lose_range()`/`_chase_speed()` helpers in `enemy.gd`).

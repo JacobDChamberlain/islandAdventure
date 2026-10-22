@@ -45,10 +45,27 @@ func _ready() -> void:
 	var ground := get_tree().get_first_node_in_group("island")
 	if ground == null:
 		return
-	if ground.has_method("building_top_at"):
+	# A level can hand-place its lamps (Sky Valley's village and town do);
+	# otherwise the city gets street lamps and the island lanterns.
+	if ground.has_method("lamp_spots"):
+		_build_spots(ground.lamp_spots())
+	elif ground.has_method("building_top_at"):
 		_build_street_lamps(ground)
 	else:
 		_build_island_lanterns(ground)
+
+# Spots are {kind: "street"|"lantern", pos: Vector3 (on the ground), yaw}.
+func _build_spots(spots: Array) -> void:
+	var street: Array[Transform3D] = []
+	var lantern: Array[Transform3D] = []
+	for sp in spots:
+		var xf := Transform3D(Basis(Vector3.UP, float(sp.get("yaw", 0.0))), sp["pos"])
+		if sp.get("kind", "lantern") == "street":
+			street.append(xf)
+		else:
+			lantern.append(xf)
+	_street_lamps(street)
+	_lantern_posts(lantern)
 
 # 0 = daytime (unlit), 1 = full night. Only touches the lights when it changes.
 func set_glow(g: float) -> void:
@@ -149,16 +166,6 @@ func _pole_collider(xf: Transform3D, radius: float, height: float) -> void:
 func _build_street_lamps(city: Node) -> void:
 	var p: float = city.block_size + city.road_width
 	var corner: float = city.road_width * 0.5 + sidewalk_inset
-	var arm := 1.8
-	var body := _street_lamp_mesh(arm)
-	var bulb := ArrayMesh.new()
-	var bulb_prim := SphereMesh.new()
-	bulb_prim.radius = 0.2
-	bulb_prim.height = 0.26
-	bulb_prim.radial_segments = 8
-	bulb_prim.rings = 4
-	_add_part(bulb, bulb_prim, Transform3D(Basis(), Vector3(arm, pole_height - 0.32, 0)), _glow_mat)
-
 	var bodies: Array[Transform3D] = []
 	var n := int(floor((city.extent - 4.0) / p))
 	for i in range(-n, n + 1):
@@ -169,10 +176,25 @@ func _build_street_lamps(city: Node) -> void:
 			var z := j * p + sz * corner
 			# Arm points diagonally back toward the middle of the crossing.
 			var yaw := atan2(sz, -sx)
-			var xf := Transform3D(Basis(Vector3.UP, yaw), Vector3(x, city.height_at(x, z), z))
-			bodies.append(xf)
-			_pole_collider(xf, 0.14, pole_height)
-			_add_light(self, xf * Vector3(arm, pole_height - 0.55, 0), street_light_energy, street_light_range, fade_begin)
+			bodies.append(Transform3D(Basis(Vector3.UP, yaw), Vector3(x, city.height_at(x, z), z)))
+	_street_lamps(bodies)
+
+# One street lamp per transform (at its foot; the arm reaches along local +X).
+func _street_lamps(bodies: Array[Transform3D]) -> void:
+	if bodies.is_empty():
+		return
+	var arm := 1.8
+	var body := _street_lamp_mesh(arm)
+	var bulb := ArrayMesh.new()
+	var bulb_prim := SphereMesh.new()
+	bulb_prim.radius = 0.2
+	bulb_prim.height = 0.26
+	bulb_prim.radial_segments = 8
+	bulb_prim.rings = 4
+	_add_part(bulb, bulb_prim, Transform3D(Basis(), Vector3(arm, pole_height - 0.32, 0)), _glow_mat)
+	for xf in bodies:
+		_pole_collider(xf, 0.14, pole_height)
+		_add_light(self, xf * Vector3(arm, pole_height - 0.55, 0), street_light_energy, street_light_range, fade_begin)
 	_multimesh(body, bodies, true)
 	_multimesh(bulb, bodies, false)
 
@@ -201,17 +223,6 @@ func _build_island_lanterns(island: Node) -> void:
 			avoid.append(Vector2(c.global_position.x, c.global_position.z))
 	var radius: float = island.island_radius * 0.8 if "island_radius" in island else 70.0
 
-	var wood := _mat(Color(0.36, 0.24, 0.14), 0.95)
-	var iron := _mat(Color(0.12, 0.12, 0.13), 0.5, 0.5)
-	var post := ArrayMesh.new()
-	var post_h := 3.4
-	var arm := 1.1
-	_add_part(post, _cyl(0.1, 0.14, post_h, 6), Transform3D(Basis(), Vector3(0, post_h * 0.5, 0)), wood)
-	_add_part(post, _box(Vector3(arm + 0.2, 0.12, 0.12)), Transform3D(Basis(), Vector3(arm * 0.5, post_h - 0.15, 0)), wood)
-	# A diagonal brace under the arm.
-	_add_part(post, _box(Vector3(0.8, 0.08, 0.08)),
-			Transform3D(Basis(Vector3.BACK, deg_to_rad(40.0)), Vector3(0.3, post_h - 0.45, 0)), wood)
-
 	var placed: Array[Vector2] = []
 	var posts: Array[Transform3D] = []
 	var tries := lantern_count * 40
@@ -230,10 +241,27 @@ func _build_island_lanterns(island: Node) -> void:
 		if _too_close(pt, placed, lantern_spacing) or _too_close(pt, avoid, lantern_clearance):
 			continue
 		placed.append(pt)
-		var xf := Transform3D(Basis(Vector3.UP, rng.randf() * TAU), Vector3(pt.x, h - 0.1, pt.y))
-		posts.append(xf)
+		posts.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU), Vector3(pt.x, h - 0.1, pt.y)))
+	_lantern_posts(posts)
+
+# A post with a hanging lantern per transform (at its foot; arm along local +X).
+func _lantern_posts(posts: Array[Transform3D]) -> void:
+	if posts.is_empty():
+		return
+	var wood := _mat(Color(0.36, 0.24, 0.14), 0.95)
+	var iron := _mat(Color(0.12, 0.12, 0.13), 0.5, 0.5)
+	var post := ArrayMesh.new()
+	var post_h := 3.4
+	var arm := 1.1
+	_add_part(post, _cyl(0.1, 0.14, post_h, 6), Transform3D(Basis(), Vector3(0, post_h * 0.5, 0)), wood)
+	_add_part(post, _box(Vector3(arm + 0.2, 0.12, 0.12)), Transform3D(Basis(), Vector3(arm * 0.5, post_h - 0.15, 0)), wood)
+	# A diagonal brace under the arm.
+	_add_part(post, _box(Vector3(0.8, 0.08, 0.08)),
+			Transform3D(Basis(Vector3.BACK, deg_to_rad(40.0)), Vector3(0.3, post_h - 0.45, 0)), wood)
+	for k in posts.size():
+		var xf := posts[k]
 		_pole_collider(xf, 0.15, post_h)
-		_hang_lantern(xf * Vector3(arm, post_h - 0.21, 0), xf.basis, iron, rng.randf() * TAU)
+		_hang_lantern(xf * Vector3(arm, post_h - 0.21, 0), xf.basis, iron, float(k) * 1.7)
 	_multimesh(post, posts, true)
 
 func _too_close(pt: Vector2, others: Array[Vector2], dist: float) -> bool:
