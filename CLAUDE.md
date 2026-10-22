@@ -211,8 +211,16 @@ and exposes **`height_at(x, z)`** — the source of truth for ground height.
   pathfinding; launch pads fling her (`_check_launch_pads`, she can't trigger
   their Area3D herself) and can't re-fire until she steps off — unless you're
   stood by the pad too, in which case you can both keep bouncing.
+- **City ground paint** (`assets/materials/city_ground.gdshader`): lane lines,
+  crosswalks, stop lines, manholes, sidewalk slabs + cracks, plaza bricks and
+  park grass are all painted per pixel from world position, using the grid
+  numbers `city._ground_material()` passes in — change `road_width`/`block_size`
+  and the paint follows. Parks are a per-block hash, so they're baked into a tiny
+  `block_data` texture (one texel per block). The curb ramps cover the outer
+  ~1 m of road, which is why edge lines sit at `hw - 1.3`. Cracks divide noise
+  by its slope so they stay hairline-thin instead of fattening into blobs.
 - **Lamps** (`lamps.gd`, a Node3D main.gd adds in code): street lamps on one
-  sidewalk corner per city intersection (MultiMesh body + bulb, per-lamp
+  sidewalk corner per city intersection plus one mid-block per street (MultiMesh body + bulb, per-lamp
   OmniLight + thin pole collider), wooden posts with swaying hanging lanterns on
   the island. `main._update_day_night` drives `set_glow()` so they fade on at
   dusk. No shadows, and lights distance-fade — the web build's Compatibility

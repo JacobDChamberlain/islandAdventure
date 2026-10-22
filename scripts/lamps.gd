@@ -159,7 +159,7 @@ func _pole_collider(xf: Transform3D, radius: float, height: float) -> void:
 
 # --- City ---------------------------------------------------------------------
 # One lamp per intersection, on a sidewalk corner, its arm reaching out over the
-# crossing. The corner alternates per intersection so the streets don't read as
+# crossing, and one more halfway down each street. The corner alternates per intersection so the streets don't read as
 # a copy-pasted grid. Lamp body and bulb are two MultiMeshes (one draw each);
 # only the lights and colliders are per-lamp nodes.
 
@@ -177,6 +177,23 @@ func _build_street_lamps(city: Node) -> void:
 			# Arm points diagonally back toward the middle of the crossing.
 			var yaw := atan2(sz, -sx)
 			bodies.append(Transform3D(Basis(Vector3.UP, yaw), Vector3(x, city.height_at(x, z), z)))
+			# Plus one halfway along each street leaving this junction (+X and
+			# +Z), on alternating sides, arm out over the road. Kept out of the
+			# plaza, where Spencer, Biscuit and the portals stand.
+			if i < n:
+				var side := 1.0 if posmod(i + j, 2) == 0 else -1.0
+				var mx := (i + 0.5) * p
+				var mz := j * p + side * corner
+				if Vector2(mx, mz).length() > city.plaza_radius:
+					bodies.append(Transform3D(Basis(Vector3.UP, side * PI * 0.5),
+							Vector3(mx, city.height_at(mx, mz), mz)))
+			if j < n:
+				var side := 1.0 if posmod(i + j, 2) == 1 else -1.0
+				var mx := i * p + side * corner
+				var mz := (j + 0.5) * p
+				if Vector2(mx, mz).length() > city.plaza_radius:
+					bodies.append(Transform3D(Basis(Vector3.UP, 0.0 if side < 0.0 else PI),
+							Vector3(mx, city.height_at(mx, mz), mz)))
 	_street_lamps(bodies)
 
 # One street lamp per transform (at its foot; the arm reaches along local +X).

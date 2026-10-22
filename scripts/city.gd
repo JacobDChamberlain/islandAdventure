@@ -187,17 +187,34 @@ func _build_ground() -> void:
 			_tri(st, a, d, c)
 	var mesh := st.commit()
 
-	var mat := StandardMaterial3D.new()
-	mat.vertex_color_use_as_albedo = true
-	mat.roughness = 0.97
-	mat.cull_mode = BaseMaterial3D.CULL_BACK
-
 	var mi := MeshInstance3D.new()
 	mi.name = "Ground"
 	mi.mesh = mesh
-	mi.material_override = mat
+	mi.material_override = _ground_material()
 	add_child(mi)
 	mi.create_trimesh_collision()
+
+# Road markings, crosswalks, sidewalk slabs and cracks are all painted per pixel
+# by city_ground.gdshader from the same grid numbers the streets are built from.
+# The vertex colours stay on the mesh as a fallback but the shader ignores them.
+# Parks are a per-block hash the shader can't recompute cheaply, so they're
+# baked into a tiny texture: one texel per block, red = park.
+func _ground_material() -> ShaderMaterial:
+	const OFFSET := 8
+	var img := Image.create(OFFSET * 2, OFFSET * 2, false, Image.FORMAT_R8)
+	for ix in range(-OFFSET, OFFSET):
+		for iz in range(-OFFSET, OFFSET):
+			if _block_is_park(ix, iz):
+				img.set_pixel(ix + OFFSET, iz + OFFSET, Color.WHITE)
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://assets/materials/city_ground.gdshader")
+	mat.set_shader_parameter("pitch", _pitch())
+	mat.set_shader_parameter("road_width", road_width)
+	mat.set_shader_parameter("block_size", block_size)
+	mat.set_shader_parameter("plaza_radius", plaza_radius)
+	mat.set_shader_parameter("block_data", ImageTexture.create_from_image(img))
+	mat.set_shader_parameter("block_offset", OFFSET)
+	return mat
 
 func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3) -> void:
 	var n := (b - a).cross(c - a).normalized()
